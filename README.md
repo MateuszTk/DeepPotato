@@ -1,0 +1,2 @@
+# DeepPotato
+Simple neural network
