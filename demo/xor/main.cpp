@@ -1,18 +1,18 @@
-
 #include <iostream>
 #include <array>
 #include <iomanip>
+#include <chrono>
 
 #include "Neuron.hpp"
 #include "Layer.hpp"
 #include "Network.hpp"
 
-std::array<TrainingData, 4> trainingData = {{
+std::array<TrainingData, 4> trainingData = { {
 	{{0.0f, 0.0f}, { 0.0f }},
 	{{0.0f, 1.0f}, { 1.0f }},
 	{{1.0f, 0.0f}, { 1.0f }},
 	{{1.0f, 1.0f}, { 0.0f }}
-}};
+} };
 
 int main() {
 	srand(time(NULL));

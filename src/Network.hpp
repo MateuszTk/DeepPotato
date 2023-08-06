@@ -109,6 +109,10 @@ public:
 		return error / neuronCount;
 	}
 
+	Layer* getOutputLayer() {
+		return layers[layerCount - 1];
+	}
+
 	void setLearningRate(float learningRate) {
 		this->learningRate = learningRate;
 	}

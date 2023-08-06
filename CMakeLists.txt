@@ -1,6 +1,4 @@
-﻿# CMakeList.txt : CMake project for DeepPotato, include source and define
-# project specific logic here.
-#
+﻿
 cmake_minimum_required (VERSION 3.8)
 
 # Enable Hot Reload for MSVC compilers if supported.
@@ -11,16 +9,20 @@ endif()
 
 project ("DeepPotato")
 
-file(GLOB_RECURSE SOURCES RELATIVE
-	"${CMAKE_CURRENT_SOURCE_DIR}"
-	"src/*.cpp"
-)
+include_directories("src")
 
-# Add source to this project's executable.
-add_executable (${PROJECT_NAME}  ${SOURCES})
+option(BUILD_XOR "Build XOR demo" OFF)
+option(BUILD_IMAGE_COMPRESSION "Build Image Compression demo" OFF)
+
+if(BUILD_XOR)
+	add_subdirectory(demo/xor)
+endif()
+
+if(BUILD_IMAGE_COMPRESSION)
+	add_subdirectory(demo/image_compression)
+endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET DeepPotato PROPERTY CXX_STANDARD 20)
 endif()
 
-# TODO: Add tests and install targets if needed.
