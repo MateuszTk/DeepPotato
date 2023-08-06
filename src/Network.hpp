@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include <vector>
+#include <cmath>
 
 #include "Neuron.hpp"
 #include "Layer.hpp"
@@ -134,7 +135,7 @@ private:
 	float learningRate;
 
 	float sigmoid(float x) {
-		return 1.0f / (1.0f + exp(-x));
+		return 1.0f / (1.0f + std::exp(-x));
 	}
 
 	float sigmoidDerivative(float x) {

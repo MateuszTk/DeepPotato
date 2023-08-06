@@ -62,7 +62,13 @@ int main(int argc, char** argv) {
 				}
 			}
 
+			SDL_Event event;
+			bool quit = false;
+			engine::IO::getKeys(&event, &quit);
 			display.printFrame();
+			if (quit) {
+				return 0;
+			}
 		}
 	}
 	return 0;
