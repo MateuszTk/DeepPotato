@@ -10,7 +10,7 @@ namespace engine {
 
 	class Display {
 	public:
-		Display(int _screenWidth, int _screenHeight, const char* windowTitle);
+		Display(int _screenWidth, int _screenHeight, const char* windowTitle, bool initFont = true);
 		~Display();
 		double printFrame(bool clear = true);
 		void drawString(const char* text, hlp::vec2<int> position, float fontSize = 1.0f, bool background = false, bool centered = false);

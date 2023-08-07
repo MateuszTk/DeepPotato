@@ -18,15 +18,16 @@ int main() {
 	srand(time(NULL));
 
 	Network network({ 2, 3, 1 });
-	network.setLearningRate(0.1f);
+	network.setLearningRate(1.0f);
 
-	for (int epoch = 0; epoch < 40000; epoch++) {
-		int trDataIndex = epoch % trainingData.size();
+	for (int iteration = 0; iteration < 4000; iteration++) {
+		int trDataIndex = iteration % trainingData.size();
 		const TrainingData& trData = trainingData[trDataIndex];
-		network.train(trData);
-		if (epoch % 1000 == 0) {
+		bool endOfBatch = (iteration % trainingData.size()) == (trainingData.size() - 1);
+		network.train(trData, endOfBatch);
+		if (iteration % 100 == 0) {
 			float error = network.getError(trData);
-			std::cout << "Epoch: " << epoch << ", Error: " << std::fixed << error << std::endl;
+			std::cout << "Iteration: " << iteration << ", Error: " << std::fixed << error << std::endl;
 		}
 	}
 	return 0;

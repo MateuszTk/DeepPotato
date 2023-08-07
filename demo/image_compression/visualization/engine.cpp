@@ -22,8 +22,8 @@ const Uint8* engine::IO::getKeys(SDL_Event* event, bool* quit) {
 
 //--------------Display--------------//
 
-engine::Display::Display(int _screenWidth, int _screenHeight, const char* windowTitle) : screenWidth(_screenWidth), screenHeight(_screenHeight) {
-	if (initializeView(windowTitle)) {
+engine::Display::Display(int _screenWidth, int _screenHeight, const char* windowTitle, bool initFont) : screenWidth(_screenWidth), screenHeight(_screenHeight) {
+	if (initializeView(windowTitle) && initFont) {
 		initializeFont();
 	}
 }
