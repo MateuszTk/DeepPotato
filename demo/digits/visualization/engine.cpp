@@ -182,9 +182,6 @@ bool engine::Display::initializeView(const char* windowTitle) {
 
 	SDL_SetWindowTitle(this->window, windowTitle);
 
-	//hide cursor
-	SDL_ShowCursor(SDL_DISABLE);
-
 	return true;
 }
 

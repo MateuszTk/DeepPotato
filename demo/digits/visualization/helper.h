@@ -187,6 +187,9 @@ namespace hlp {
 		}
 	};
 
+	using ivec2 = vec2<int>;
+	using fvec2 = vec2<float>;
+
 	template <typename A, typename B>
 	struct pair {
 		A first;
