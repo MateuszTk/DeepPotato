@@ -2,6 +2,11 @@
 #include <array>
 #include <iomanip>
 #include <chrono>
+#include <vector>
+#include <algorithm>
+#include <random>
+#include <cmath>
+#include <thread>
 
 #include "Neuron.hpp"
 #include "Layer.hpp"
@@ -13,13 +18,30 @@
 #include "engine.h"
 #include "Canvas.hpp"
 
+// ------------------- CONFIG -------------------
+// AUTO_TEST defined: size of the preview window (set to -1 to disable)
+// AUTO_TEST undefined: size of the paint canvas
 #define PREVIEW_WIDTH 200
 
+// size of the batch
 #define BATCH_SIZE 32
 
-// when defined, the program runs a tests and show the results automatically,
-// when undefined, the program allows the user to draw a digits to test the network while it's training
+// enable testing
+#define TEST
+// enable training
+#define TRAIN
+
+// When defined, the program runs a tests and show the results automatically,
+//		'*' is the correct answer, '^' is the network's answer
+// When undefined, the program allows the user to draw a digits to test the network while it's training
 #define AUTO_TEST
+
+// save location (press key 'S')
+#define SAVE_PATH "digits.dpn"
+// load location (press key 'L')
+#define LOAD_PATH "digits.dpn"
+
+// ----------------------------------------------
 
 void displayInputImage(engine::Display& display, const TrainingData& image, int width, int height, float previewSizeMultiplier) {
 	const float previewWidth = width * previewSizeMultiplier;
@@ -65,10 +87,12 @@ int main(int argc, char** argv) {
 	IDX::IDX_Data trainLabels = IDX::import("dataset/train-labels.idx1-ubyte");
 	IDX::printData(trainLabels);
 
+#ifdef AUTO_TEST
 	IDX::IDX_Data testImages = IDX::import("dataset/t10k-images.idx3-ubyte");
 	IDX::printData(testImages);
 	IDX::IDX_Data testLabels = IDX::import("dataset/t10k-labels.idx1-ubyte");
 	IDX::printData(testLabels);
+#endif // AUTO_TEST
 
 	const int width = trainImages.header.sizes[1];
 	const int height = trainImages.header.sizes[2];
@@ -99,7 +123,11 @@ int main(int argc, char** argv) {
 	auto start = std::chrono::high_resolution_clock::now();
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 
-	for (int iteration = 0; iteration < 2000000000; iteration++) {
+	int iteration = 0;
+	while (true) {
+		iteration++;
+
+#ifdef TRAIN
 		int trDataIndex = iteration % trainImages.header.sizes[0];
 		const unsigned char* image = trainImages.data + trDataIndex * imageSize;
 		const unsigned char label = trainLabels.data[trDataIndex];
@@ -132,23 +160,34 @@ int main(int argc, char** argv) {
 		}
 		// train network
 		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
-
-		// test network with user input
+#ifdef TEST
 #ifdef AUTO_TEST
 		const int testDelay = 4000;
-#else
+#else // !AUTO_TEST
 		const int testDelay = 100;
-#endif
+#endif // AUTO_TEST
+#else
+		const int testDelay = 5000;
+#endif // TEST
+
+#else // !TRAIN
+		const int testDelay = 1;
+#endif // TRAIN
+
 
 		if (iteration % testDelay == 0) {
 			auto end = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double> diff = end - start;
 			if (diff.count() > 0.06) {
 				start = end;
+#ifdef TEST
 #ifdef AUTO_TEST
 				int testDataIndex = (iteration / testDelay) % testImages.header.sizes[0];
 				autoTest(iteration, testImages, testLabels, display, network, width, height, imageSize, previewSizeMultiplier, trData, testDataIndex);
-#else
+#ifndef TRAIN
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000)); 
+#endif // !TRAIN
+#else // !AUTO_TEST
 				
 				//displayInputImage(display, trData, width, height, previewSizeMultiplier);
 
@@ -178,7 +217,9 @@ int main(int argc, char** argv) {
 				}
 
 				// print output
+#ifdef TRAIN
 				std::cout << "Iteration: " << iteration << '\n';
+#endif // TRAIN
 				for (int i = 0; i < 10; i++) {
 					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getNeuron(i)->getOutput() << " ";
 					if (i == maxIndex) {
@@ -187,7 +228,10 @@ int main(int argc, char** argv) {
 					std::cout << std::endl;
 				}
 				std::cout << std::endl;
-#endif
+#endif // AUTO_TEST
+#else // !TEST
+				std::cout << "Iteration: " << iteration << '\n';
+#endif // TEST
 
 				// handle user keyboard input
 				bool quit = false;
@@ -198,6 +242,12 @@ int main(int argc, char** argv) {
 				}
 				if (keystates[SDL_SCANCODE_SPACE]) {
 					canvas.clear();
+				}
+				if (keystates[SDL_SCANCODE_S]) {
+					network.save(SAVE_PATH);
+				}
+				if (keystates[SDL_SCANCODE_L]) {
+					network.load(LOAD_PATH);
 				}
 
 				// display canvas

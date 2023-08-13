@@ -29,6 +29,10 @@ public:
 		return outputWeights;
 	}
 
+	float getOutputWeight(int iWeight) {
+		return outputWeights[iWeight];
+	}
+
 	float getBias() {
 		return bias;
 	}

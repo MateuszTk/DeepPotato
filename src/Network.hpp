@@ -3,6 +3,8 @@
 #include <initializer_list>
 #include <vector>
 #include <cmath>
+#include <iostream>
+#include <fstream>
 
 #include "Neuron.hpp"
 #include "Layer.hpp"
@@ -152,6 +154,74 @@ public:
 
 	float getLearningRate() {
 		return learningRate;
+	}
+
+	void save(const char* path) {
+		std::ofstream file(path, std::ios::binary);
+		if (!file.is_open()) {
+			std::cout << "Failed to open file " << path << '\n';
+			return;
+		}
+
+		file.write((char*)&layerCount, sizeof(int));
+		for (int iLayer = 0; iLayer < layerCount; iLayer++) {
+			Layer* layer = layers[iLayer];
+
+			int neuronCount = layer->getNeuronCount();
+			file.write((char*)&neuronCount, sizeof(int));
+
+			int weightCount = 0;
+			if (layer->getNeuronCount() > 0) {
+				weightCount = layer->getNeuron(0)->getOutputSize();
+			}
+			file.write((char*)&weightCount, sizeof(int));
+
+			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
+				Neuron* neuron = layer->getNeuron(iNeuron);
+
+				float bias = neuron->getBias();
+				file.write((char*)&bias, sizeof(float));
+				
+				file.write((char*)(neuron->getOutputWeights()), sizeof(float) * weightCount);
+			}
+		}
+
+		file.close();
+		std::cout << "Saved network to " << path << '\n';
+	}
+
+	void load(const char* path) {
+		for (int i = 0; i < layerCount; i++) {
+			delete layers[i];
+		}
+		delete[] layers;
+
+		std::ifstream file(path, std::ios::binary);
+
+		file.read((char*)&layerCount, sizeof(int));
+		layers = new Layer*[layerCount];
+		for (int iLayer = 0; iLayer < layerCount; iLayer++) {
+			int neuronCount;
+			file.read((char*)&neuronCount, sizeof(int));
+
+			int weightCount;
+			file.read((char*)&weightCount, sizeof(int));
+
+			layers[iLayer] = new Layer(neuronCount, weightCount);
+
+			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
+				Neuron* neuron = layers[iLayer]->getNeuron(iNeuron);
+
+				float bias;
+				file.read((char*)&bias, sizeof(float));
+				neuron->setBias(bias);
+
+				file.read((char*)(neuron->getOutputWeights()), sizeof(float) * weightCount);
+			}
+		}
+
+		file.close();
+		std::cout << "Loaded network from " << path << '\n';
 	}
 
 	~Network() {
