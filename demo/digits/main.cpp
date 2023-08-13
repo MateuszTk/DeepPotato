@@ -123,6 +123,7 @@ int main(int argc, char** argv) {
 	auto start = std::chrono::high_resolution_clock::now();
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 
+	int lastIteration = 0;
 	int iteration = 0;
 	while (true) {
 		iteration++;
@@ -160,13 +161,14 @@ int main(int argc, char** argv) {
 		}
 		// train network
 		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
+
 #ifdef TEST
 #ifdef AUTO_TEST
 		const int testDelay = 4000;
 #else // !AUTO_TEST
 		const int testDelay = 100;
 #endif // AUTO_TEST
-#else
+#else // !TEST
 		const int testDelay = 5000;
 #endif // TEST
 
@@ -177,18 +179,22 @@ int main(int argc, char** argv) {
 
 		if (iteration % testDelay == 0) {
 			auto end = std::chrono::high_resolution_clock::now();
-			std::chrono::duration<double> diff = end - start;
-			if (diff.count() > 0.06) {
+			std::chrono::duration<double, std::milli> diff = end - start;
+
+			if (diff.count() >= 6) {
 				start = end;
 #ifdef TEST
 #ifdef AUTO_TEST
 				int testDataIndex = (iteration / testDelay) % testImages.header.sizes[0];
 				autoTest(iteration, testImages, testLabels, display, network, width, height, imageSize, previewSizeMultiplier, trData, testDataIndex);
+
+				std::cout << "Training speed: " << (iteration - lastIteration) / diff.count() * 1000 << " iterations per second\n";
+				lastIteration = iteration;
 #ifndef TRAIN
-				std::this_thread::sleep_for(std::chrono::milliseconds(1000)); 
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 #endif // !TRAIN
 #else // !AUTO_TEST
-				
+
 				//displayInputImage(display, trData, width, height, previewSizeMultiplier);
 
 				// allow user to draw a digit on the canvas
@@ -230,7 +236,9 @@ int main(int argc, char** argv) {
 				std::cout << std::endl;
 #endif // AUTO_TEST
 #else // !TEST
-				std::cout << "Iteration: " << iteration << '\n';
+				std::cout << "Iteration: " << iteration << " ,";
+				std::cout << "Training speed: " << (iteration - lastIteration) / diff.count() * 1000 << " iterations per second\n";
+				lastIteration = iteration;
 #endif // TEST
 
 				// handle user keyboard input
