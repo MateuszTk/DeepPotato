@@ -38,6 +38,8 @@ int main(int argc, char** argv) {
 
 	TrainingData trData = { {0.0f, 0.0f}, { 0.0f, 0.0f, 0.0f } };
 
+	auto start = std::chrono::high_resolution_clock::now();
+
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 	for (int iteration = 0; iteration < 1000000000; iteration++) {
 		int randomIndex = (rand() * samplingMultiplier) % imageSize;
@@ -69,7 +71,12 @@ int main(int argc, char** argv) {
 			}
 
 			error /= previewWidth * previewHeight;
-			std::cout << "Iteration: " << iteration << ", Error: " << std::fixed << error << std::endl;
+			std::cout << "Iteration: " << iteration << ", Error: " << std::fixed << error;
+
+			auto end = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double, std::milli> elapsed = end - start;
+			std::cout << " | " << (100000) / elapsed.count() * 1000 << " iterations per second\n";
+			start = end;
 
 			bool quit = false;
 			const Uint8* keystates = engine::IO::getKeys(&event, &quit);

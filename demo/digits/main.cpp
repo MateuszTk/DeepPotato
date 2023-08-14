@@ -1,22 +1,3 @@
-#include <iostream>
-#include <array>
-#include <iomanip>
-#include <chrono>
-#include <vector>
-#include <algorithm>
-#include <random>
-#include <cmath>
-#include <thread>
-
-#include "Neuron.hpp"
-#include "Layer.hpp"
-#include "Network.hpp"
-
-#include "IDX_Importer.hpp"
-
-#define SDL_MAIN_HANDLED
-#include "engine.h"
-#include "Canvas.hpp"
 
 // ------------------- CONFIG -------------------
 // AUTO_TEST defined: size of the preview window (set to -1 to disable)
@@ -25,6 +6,9 @@
 
 // size of the batch
 #define BATCH_SIZE 32
+// number of threads used for training, set to 0 to disable multithreading
+// use multithreading only with big networks, otherwise it will be slower
+#define THREAD_POOL_SIZE 4
 
 // enable testing
 #define TEST
@@ -37,11 +21,32 @@
 #define AUTO_TEST
 
 // save location (press key 'S')
-#define SAVE_PATH "digits.dpn"
+#define SAVE_PATH "network.dpn"
 // load location (press key 'L')
-#define LOAD_PATH "digits.dpn"
+#define LOAD_PATH "network.dpn"
 
 // ----------------------------------------------
+
+#include <iostream>
+#include <array>
+#include <iomanip>
+#include <chrono>
+#include <vector>
+#include <algorithm>
+#include <random>
+#include <cmath>
+#include <thread>
+
+#include "ThreadPool.hpp"
+#include "Neuron.hpp"
+#include "Layer.hpp"
+#include "Network.hpp"
+
+#include "IDX_Importer.hpp"
+
+#define SDL_MAIN_HANDLED
+#include "engine.h"
+#include "Canvas.hpp"
 
 void displayInputImage(engine::Display& display, const TrainingData& image, int width, int height, float previewSizeMultiplier) {
 	const float previewWidth = width * previewSizeMultiplier;

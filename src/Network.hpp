@@ -6,8 +6,13 @@
 #include <iostream>
 #include <fstream>
 
+#include "ThreadPool.hpp"
 #include "Neuron.hpp"
 #include "Layer.hpp"
+
+#ifndef THREAD_POOL_SIZE
+#define THREAD_POOL_SIZE 0
+#endif
 
 struct TrainingData {
 	std::vector<float> inputs;
@@ -16,7 +21,7 @@ struct TrainingData {
 
 class Network {
 public:
-	Network(const std::initializer_list<int>& layersSizes) : learningRate(0.1f) {
+	Network(const std::initializer_list<int>& layersSizes) : learningRate(0.1f), threadPool(THREAD_POOL_SIZE) {
 		this->layerCount = layersSizes.size();
 		this->layers = new Layer*[layerCount];
 		int i = 0;
@@ -41,8 +46,8 @@ public:
 		for (int layer = 1; layer < layerCount; layer++) {
 			Layer* currentLayer = layers[layer];
 			Layer* previousLayer = layers[layer - 1];
-
-			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
+			
+			auto job = std::function<void(unsigned int)>([this, currentLayer, previousLayer](unsigned int iNeuron) {
 				Neuron* neuron = currentLayer->getNeuron(iNeuron);
 				float sum = 0.0f;
 				for (int j = 0; j < previousLayer->getNeuronCount(); j++) {
@@ -51,6 +56,16 @@ public:
 				}
 				neuron->setInput(sum);
 				neuron->setOutput(sigmoid(sum + neuron->getBias()));
+			});
+
+			if (THREAD_POOL_SIZE <= 0) {
+				for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
+					job(iNeuron);
+				}
+			}
+			else {
+				threadPool.addJob(job, currentLayer->getNeuronCount());			
+				threadPool.wait();
 			}
 		}
 	}
@@ -75,7 +90,7 @@ public:
 			Layer* currentLayer = layers[layer];
 			Layer* nextLayer = layers[layer + 1];
 			Layer* previousLayer = layers[layer - 1];
-
+			
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
 				Neuron* neuron = currentLayer->getNeuron(iNeuron);
 				float errorSum = 0.0f;
@@ -232,6 +247,8 @@ public:
 	}
 
 private:
+	ThreadPool threadPool;
+
 	Layer** layers;
 	int layerCount;
 	float learningRate;
