@@ -6,9 +6,10 @@
 
 // size of the batch
 #define BATCH_SIZE 32
-// number of threads used for training, set to 0 to disable multithreading
+
+// number of threads used for training, set to 0 or not define to disable multithreading
 // use multithreading only with big networks, otherwise it will be slower
-#define THREAD_POOL_SIZE 4
+// #define THREAD_POOL_SIZE 4
 
 // enable testing
 #define TEST
@@ -186,7 +187,7 @@ int main(int argc, char** argv) {
 			auto end = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> diff = end - start;
 
-			if (diff.count() >= 6) {
+			if (diff.count() >= 50) {
 				start = end;
 #ifdef TEST
 #ifdef AUTO_TEST

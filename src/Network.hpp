@@ -71,22 +71,7 @@ public:
 	}
 
 	void propagateError(const TrainingData& targetData) {
-		for (int iNeuron = 0; iNeuron < layers[layerCount - 1]->getNeuronCount(); iNeuron++) {
-			Neuron* neuron = layers[layerCount - 1]->getNeuron(iNeuron);
-			float delta = targetData.outputs[iNeuron] - neuron->getOutput();
-			delta *= sigmoidDerivative(neuron->getInput() + neuron->getBias());
-			neuron->setError(delta);
-
-			// sum errors for bias and weights
-			neuron->addErrorSum(delta);
-			Layer* previousLayer = layers[layerCount - 2];
-			for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-				Neuron* previousNeuron = previousLayer->getNeuron(iPrevNeuron);
-				previousNeuron->addWeightErrorSum(iNeuron, delta * previousNeuron->getOutput());
-			}
-		}
-
-		for (int layer = layerCount - 2; layer > 0; layer--) {
+		for (int layer = layerCount - 1; layer > 0; layer--) {
 			Layer* currentLayer = layers[layer];
 			Layer* nextLayer = layers[layer + 1];
 			Layer* previousLayer = layers[layer - 1];
@@ -94,8 +79,13 @@ public:
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
 				Neuron* neuron = currentLayer->getNeuron(iNeuron);
 				float errorSum = 0.0f;
-				for (int iNextNeuron = 0; iNextNeuron < nextLayer->getNeuronCount(); iNextNeuron++) {
-					errorSum += nextLayer->getNeuron(iNextNeuron)->getError() * neuron->getOutputWeights()[iNextNeuron];
+				if (layer == layerCount - 1) {
+					errorSum = targetData.outputs[iNeuron] - neuron->getOutput();
+				}
+				else{
+					for (int iNextNeuron = 0; iNextNeuron < nextLayer->getNeuronCount(); iNextNeuron++) {
+						errorSum += nextLayer->getNeuron(iNextNeuron)->getError() * neuron->getOutputWeights()[iNextNeuron];
+					}
 				}
 				errorSum *= sigmoidDerivative(neuron->getInput() + neuron->getBias());
 				neuron->setError(errorSum);
