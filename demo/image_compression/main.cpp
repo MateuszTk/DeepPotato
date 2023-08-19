@@ -3,7 +3,6 @@
 #include <iomanip>
 #include <chrono>
 
-#include "Neuron.hpp"
 #include "Layer.hpp"
 #include "Network.hpp"
 
@@ -36,18 +35,18 @@ int main(int argc, char** argv) {
 	Network network({ 2, 30, 20, 10, 3 });
 	network.setLearningRate(0.1f);
 
-	TrainingData trData = { {0.0f, 0.0f}, { 0.0f, 0.0f, 0.0f } };
+	TrainingData trData(2, 3);
 
 	auto start = std::chrono::high_resolution_clock::now();
 
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 	for (int iteration = 0; iteration < 1000000000; iteration++) {
 		int randomIndex = (rand() * samplingMultiplier) % imageSize;
-		trData.outputs[0] = (float)imageData[randomIndex * channels + 0] / 255.0f;
-		trData.outputs[1] = (float)imageData[randomIndex * channels + 1] / 255.0f;
-		trData.outputs[2] = (float)imageData[randomIndex * channels + 2] / 255.0f;
-		trData.inputs[0] = (float)(randomIndex % width) / (float)width;
-		trData.inputs[1] = (float)(randomIndex / width) / (float)height;
+		trData.outputs(0) = (float)imageData[randomIndex * channels + 0] / 255.0f;
+		trData.outputs(1) = (float)imageData[randomIndex * channels + 1] / 255.0f;
+		trData.outputs(2) = (float)imageData[randomIndex * channels + 2] / 255.0f;
+		trData.inputs(0) = (float)(randomIndex % width) / (float)width;
+		trData.inputs(1) = (float)(randomIndex / width) / (float)height;
 
 		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
 
@@ -57,14 +56,14 @@ int main(int argc, char** argv) {
 			const float previewHeight = height * previewSizeMultiplier;
 			for (int y = 0; y < previewHeight; y++) {
 				for (int x = 0; x < previewWidth; x++) {
-					trData.inputs[0] = (float)x / (float)previewWidth;
-					trData.inputs[1] = (float)y / (float)previewHeight;
+					trData.inputs(0) = (float)x / (float)previewWidth;
+					trData.inputs(1) = (float)y / (float)previewHeight;
 					network.setInputs(trData);
 					network.propagateForward();
 					error += network.getError(trData);
-					float r = network.getOutputLayer()->getNeuron(0)->getOutput();
-					float g = network.getOutputLayer()->getNeuron(1)->getOutput();
-					float b = network.getOutputLayer()->getNeuron(2)->getOutput();
+					float r = network.getOutputLayer()->getOutputs()(0);
+					float g = network.getOutputLayer()->getOutputs()(1);
+					float b = network.getOutputLayer()->getOutputs()(2);
 					hlp::color color = { (unsigned char)(r * 255.0f), (unsigned char)(g * 255.0f), (unsigned char)(b * 255.0f) };
 					display.drawPixel(x, y, color);					
 				}

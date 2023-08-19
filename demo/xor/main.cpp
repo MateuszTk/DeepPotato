@@ -3,7 +3,6 @@
 #include <iomanip>
 #include <chrono>
 
-#include "Neuron.hpp"
 #include "Layer.hpp"
 #include "Network.hpp"
 

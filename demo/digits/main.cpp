@@ -39,7 +39,7 @@
 #include <thread>
 
 #include "ThreadPool.hpp"
-#include "Neuron.hpp"
+//#include "Neuron.hpp"
 #include "Layer.hpp"
 #include "Network.hpp"
 
@@ -54,7 +54,7 @@ void displayInputImage(engine::Display& display, const TrainingData& image, int 
 	const float previewHeight = height * previewSizeMultiplier;
 	for (int y = 0; y < previewHeight; y++) {
 		for (int x = 0; x < previewWidth; x++) {
-			unsigned char grayScaleColor = image.inputs[(int)(y / previewSizeMultiplier) * width + (int)(x / previewSizeMultiplier)] * 255.0f;
+			unsigned char grayScaleColor = image.inputs((int)(y / previewSizeMultiplier) * width + (int)(x / previewSizeMultiplier)) * 255.0f;
 			hlp::color color = { grayScaleColor, grayScaleColor, grayScaleColor };
 			display.drawPixel(x, y, color);
 		}
@@ -122,9 +122,7 @@ int main(int argc, char** argv) {
 	Network network({ 28 * 28, 100, 100, 10 });
 	network.setLearningRate(0.1f);
 
-	TrainingData trData;
-	trData.inputs.resize(28 * 28);
-	trData.outputs.resize(10);
+	TrainingData trData(28 * 28, 10);
 
 	auto start = std::chrono::high_resolution_clock::now();
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
@@ -155,15 +153,15 @@ int main(int argc, char** argv) {
 				int randomX = x - randomOffsetX;
 				int randomY = y - randomOffsetY;
 				if (randomX < 0 || randomX >= width || randomY < 0 || randomY >= height) {
-					trData.inputs[y * width + x] = 0.0f;
+					trData.inputs(y * width + x) = 0.0f;
 					continue;
 				}
-				trData.inputs[y * width + x] = (float)image[randomY * width + randomX] / 255.0f;
+				trData.inputs(y * width + x) = (float)image[randomY * width + randomX] / 255.0f;
 			}
 		}
 		// set outputs
 		for (int i = 0; i < 10; i++) {
-			trData.outputs[i] = (i == label) ? 1.0f : 0.0f;
+			trData.outputs(i) = (i == label) ? 1.0f : 0.0f;
 		}
 		// train network
 		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
@@ -209,7 +207,7 @@ int main(int argc, char** argv) {
 
 				for (int y = 0; y < height; y++) {
 					for (int x = 0; x < width; x++) {
-						trData.inputs[y * width + x] = canvas.getPixel({ x, y }).r / 255.0f;
+						trData.inputs(y * width + x) = canvas.getPixel({ x, y }).r / 255.0f;
 					}
 				}
 
@@ -219,9 +217,9 @@ int main(int argc, char** argv) {
 
 				// find output with highest value
 				int maxIndex = 0;
-				float maxOutput = network.getOutputLayer()->getNeuron(0)->getOutput();
+				float maxOutput = network.getOutputLayer()->getOutputs()(0);
 				for (int i = 1; i < 10; i++) {
-					float output = network.getOutputLayer()->getNeuron(i)->getOutput();
+					float output = network.getOutputLayer()->getOutputs()(i);
 					if (output > maxOutput) {
 						maxOutput = output;
 						maxIndex = i;
@@ -233,7 +231,7 @@ int main(int argc, char** argv) {
 				std::cout << "Iteration: " << iteration << '\n';
 #endif // TRAIN
 				for (int i = 0; i < 10; i++) {
-					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getNeuron(i)->getOutput() << " ";
+					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i) << " ";
 					if (i == maxIndex) {
 						std::cout << " ^";
 					}
@@ -282,11 +280,11 @@ void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Dat
 	const unsigned char tlabel = testLabels.data[testDataIndex];
 
 	for (int i = 0; i < 28 * 28; i++) {
-		trData.inputs[i] = (float)timage[i] / 255.0f;
+		trData.inputs(i) = (float)timage[i] / 255.0f;
 	}
 
 	for (int i = 0; i < 10; i++) {
-		trData.outputs[i] = (i == tlabel) ? 1.0f : 0.0f;
+		trData.outputs(i) = (i == tlabel) ? 1.0f : 0.0f;
 	}
 
 	network.setInputs(trData);
@@ -297,9 +295,9 @@ void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Dat
 	float error = network.getError(trData);
 
 	int maxIndex = 0;
-	float maxOutput = network.getOutputLayer()->getNeuron(0)->getOutput();
+	float maxOutput = network.getOutputLayer()->getOutputs()(0);
 	for (int i = 1; i < 10; i++) {
-		float output = network.getOutputLayer()->getNeuron(i)->getOutput();
+		float output = network.getOutputLayer()->getOutputs()(i);
 		if (output > maxOutput) {
 			maxOutput = output;
 			maxIndex = i;
@@ -308,7 +306,7 @@ void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Dat
 
 	std::cout << "Iteration: " << iteration << ", TestId: " << testDataIndex << ", Error: " << std::fixed << std::setprecision(8) << error << std::endl;
 	for (int i = 0; i < 10; i++) {
-		std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getNeuron(i)->getOutput() << " ";
+		std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i) << " ";
 		if (i == tlabel) {
 			std::cout << " *";
 		}

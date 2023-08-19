@@ -7,7 +7,7 @@
 #include <fstream>
 
 #include "ThreadPool.hpp"
-#include "Neuron.hpp"
+//#include "Neuron.hpp"
 #include "Layer.hpp"
 
 #ifndef THREAD_POOL_SIZE
@@ -15,8 +15,22 @@
 #endif
 
 struct TrainingData {
-	std::vector<float> inputs;
-	std::vector<float> outputs;
+	Matrix1D<float> inputs;
+	Matrix1D<float> outputs;
+
+	TrainingData(unsigned int inputSize, unsigned int outputSize) : inputs({ inputSize }), outputs({ outputSize }) {}
+	TrainingData(const std::initializer_list<float>& inputs, const std::initializer_list<float>& outputs) : inputs({ (unsigned int)inputs.size() }), outputs({ (unsigned int)outputs.size() }) {
+		int i = 0;
+		for (auto it = inputs.begin(); it < inputs.end(); it++) {
+			this->inputs(i) = *it;
+			i++;
+		}
+		i = 0;
+		for (auto it = outputs.begin(); it < outputs.end(); it++) {
+			this->outputs(i) = *it;
+			i++;
+		}
+	}
 };
 
 class Network {
@@ -35,11 +49,8 @@ public:
 	}
 
 	void setInputs(const TrainingData& data) {
-		for (int i = 0; i < layers[0]->getNeuronCount(); i++) {
-			Neuron* neuron = layers[0]->getNeuron(i);
-			neuron->setInput(data.inputs[i]);
-			neuron->setOutput(data.inputs[i]);
-		}
+		layers[0]->getInputs() = data.inputs;
+		layers[0]->getOutputs() = data.inputs;
 	}
 
 	void propagateForward() {
@@ -48,14 +59,12 @@ public:
 			Layer* previousLayer = layers[layer - 1];
 			
 			auto job = std::function<void(unsigned int)>([this, currentLayer, previousLayer](unsigned int iNeuron) {
-				Neuron* neuron = currentLayer->getNeuron(iNeuron);
-				float sum = 0.0f;
+				float sum = currentLayer->getBiases()(iNeuron);
 				for (int j = 0; j < previousLayer->getNeuronCount(); j++) {
-					Neuron* previousNeuron = previousLayer->getNeuron(j);
-					sum += previousNeuron->getOutput() * previousNeuron->getOutputWeights()[iNeuron];
+					sum += previousLayer->getOutputs()(j) * previousLayer->getWeights()(iNeuron, j);
 				}
-				neuron->setInput(sum);
-				neuron->setOutput(sigmoid(sum + neuron->getBias()));
+				currentLayer->getInputs()(iNeuron) = sum;
+				currentLayer->getOutputs()(iNeuron) = sigmoid(sum);
 			});
 
 			if (THREAD_POOL_SIZE <= 0) {
@@ -77,24 +86,22 @@ public:
 			Layer* previousLayer = layers[layer - 1];
 			
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-				Neuron* neuron = currentLayer->getNeuron(iNeuron);
 				float errorSum = 0.0f;
 				if (layer == layerCount - 1) {
-					errorSum = targetData.outputs[iNeuron] - neuron->getOutput();
+					errorSum = targetData.outputs(iNeuron) - currentLayer->getOutputs()(iNeuron);
 				}
 				else{
 					for (int iNextNeuron = 0; iNextNeuron < nextLayer->getNeuronCount(); iNextNeuron++) {
-						errorSum += nextLayer->getNeuron(iNextNeuron)->getError() * neuron->getOutputWeights()[iNextNeuron];
+						errorSum += nextLayer->getErrors()(iNextNeuron) * currentLayer->getWeights()(iNextNeuron, iNeuron);
 					}
 				}
-				errorSum *= sigmoidDerivative(neuron->getInput() + neuron->getBias());
-				neuron->setError(errorSum);
+				errorSum *= sigmoidDerivative(currentLayer->getInputs()(iNeuron));
+				currentLayer->getErrors()(iNeuron) = errorSum;
 
 				// sum errors for bias and weights
-				neuron->addErrorSum(errorSum);
+				currentLayer->getErrorsSums()(iNeuron) += errorSum;
 				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					Neuron* previousNeuron = previousLayer->getNeuron(iPrevNeuron);
-					previousNeuron->addWeightErrorSum(iNeuron, errorSum * previousNeuron->getOutput());
+					previousLayer->getWeightErrorsSums()(iNeuron, iPrevNeuron) += errorSum * previousLayer->getOutputs()(iPrevNeuron);
 				}
 			}
 		}
@@ -106,13 +113,11 @@ public:
 			Layer* previousLayer = layers[layer - 1];
 
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-				Neuron* neuron = currentLayer->getNeuron(iNeuron);
 				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					Neuron* previousNeuron = previousLayer->getNeuron(iPrevNeuron);
-					float delta = previousNeuron->getWeightErrorSum(iNeuron);
-					previousNeuron->getOutputWeights()[iNeuron] += delta * this->learningRate;
+					float delta = previousLayer->getWeightErrorsSums()(iNeuron, iPrevNeuron);
+					previousLayer->getWeights()(iNeuron, iPrevNeuron) += delta * this->learningRate;
 				}
-				neuron->setBias(neuron->getBias() + neuron->getErrorSum() * this->learningRate);
+				currentLayer->getBiases()(iNeuron) += currentLayer->getErrorsSums()(iNeuron) * this->learningRate;
 			}
 		}
 	}
@@ -121,9 +126,10 @@ public:
 		for (int layer = 0; layer < layerCount; layer++) {
 			Layer* currentLayer = layers[layer];
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-				Neuron* neuron = currentLayer->getNeuron(iNeuron);
-				neuron->setErrorSum(0.0f);
-				neuron->resetWeightErrorSums();
+				currentLayer->getErrorsSums()(iNeuron) = 0.0f;
+				for (int iWeight = 0; iWeight < currentLayer->getOutputSize(); iWeight++) {
+					currentLayer->getWeightErrorsSums()(iWeight, iNeuron) = 0.0f;
+				}
 			}
 		}
 	}
@@ -142,8 +148,7 @@ public:
 		float error = 0.0f;
 		const int neuronCount = layers[layerCount - 1]->getNeuronCount();
 		for (int i = 0; i < neuronCount; i++) {
-			Neuron* neuron = layers[layerCount - 1]->getNeuron(i);
-			float delta = data.outputs[i] - neuron->getOutput();
+			float delta = data.outputs(i) - layers[layerCount - 1]->getOutputs()(i);
 			error += delta * delta;
 		}
 		return error / neuronCount;
@@ -177,17 +182,15 @@ public:
 
 			int weightCount = 0;
 			if (layer->getNeuronCount() > 0) {
-				weightCount = layer->getNeuron(0)->getOutputSize();
+				weightCount = layer->getOutputSize();
 			}
 			file.write((char*)&weightCount, sizeof(int));
 
 			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
-				Neuron* neuron = layer->getNeuron(iNeuron);
-
-				float bias = neuron->getBias();
+				float bias = layer->getBiases()(iNeuron);
 				file.write((char*)&bias, sizeof(float));
 				
-				file.write((char*)(neuron->getOutputWeights()), sizeof(float) * weightCount);
+				file.write((char*)(layer->getWeights().dataAt(0, iNeuron)), sizeof(float) * weightCount);
 			}
 		}
 
@@ -215,13 +218,11 @@ public:
 			layers[iLayer] = new Layer(neuronCount, weightCount);
 
 			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
-				Neuron* neuron = layers[iLayer]->getNeuron(iNeuron);
-
 				float bias;
 				file.read((char*)&bias, sizeof(float));
-				neuron->setBias(bias);
+				layers[iLayer]->getBiases()(iNeuron) = bias;
 
-				file.read((char*)(neuron->getOutputWeights()), sizeof(float) * weightCount);
+				file.read((char*)(layers[iLayer]->getWeights().dataAt(0, iNeuron)), sizeof(float) * weightCount);
 			}
 		}
 
