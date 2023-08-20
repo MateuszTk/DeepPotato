@@ -1,6 +1,5 @@
 #pragma once
 
-//#include "Neuron.hpp"
 #include "Matrix.hpp"
 
 float randomNormalizedFloat() {
@@ -12,14 +11,15 @@ float randomNormalizedFloat() {
 class Layer {
 public:
 	Layer(unsigned int neuronCount, unsigned int outputSize)
-		: neuronCount(neuronCount), outputSize(outputSize), weights({ outputSize, neuronCount }), biases({ neuronCount }), weightErrorsSums({ outputSize, neuronCount }),
+		: neuronCount(neuronCount), outputSize(outputSize), weights({ neuronCount, outputSize }), biases({ neuronCount }), weightErrorsSums({ neuronCount, outputSize }),
 		errorsSums({ neuronCount }), outputs({ neuronCount }), inputs({ neuronCount }), errors({ neuronCount }) {
 
 
 		for (int i = 0; i < neuronCount; i++) {
 			biases(i) = randomNormalizedFloat();
 			for (int j = 0; j < outputSize; j++) {
-				weights(j, i) = randomNormalizedFloat();
+				weights(i, j) = randomNormalizedFloat();
+				weightErrorsSums(i, j) = 0.0f;
 			}
 		}
 	}

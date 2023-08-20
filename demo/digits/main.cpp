@@ -39,7 +39,6 @@
 #include <thread>
 
 #include "ThreadPool.hpp"
-//#include "Neuron.hpp"
 #include "Layer.hpp"
 #include "Network.hpp"
 

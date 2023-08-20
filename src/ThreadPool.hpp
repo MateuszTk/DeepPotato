@@ -65,9 +65,11 @@ public:
 		terminate = true;
 		cv.notify_all();
 
-		std::cout << "Waiting for all threads ...\n";
-		for (std::thread& thread : threads) {
-			thread.join();
+		if (threads.size() > 0) {
+			std::cout << "Waiting for all threads ...\n";
+			for (std::thread& thread : threads) {
+				thread.join();
+			}
 		}
 		delete[] occupied;
 	}

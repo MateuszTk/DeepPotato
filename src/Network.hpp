@@ -6,8 +6,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "Matrix.hpp"
 #include "ThreadPool.hpp"
-//#include "Neuron.hpp"
 #include "Layer.hpp"
 
 #ifndef THREAD_POOL_SIZE
@@ -57,25 +57,9 @@ public:
 		for (int layer = 1; layer < layerCount; layer++) {
 			Layer* currentLayer = layers[layer];
 			Layer* previousLayer = layers[layer - 1];
-			
-			auto job = std::function<void(unsigned int)>([this, currentLayer, previousLayer](unsigned int iNeuron) {
-				float sum = currentLayer->getBiases()(iNeuron);
-				for (int j = 0; j < previousLayer->getNeuronCount(); j++) {
-					sum += previousLayer->getOutputs()(j) * previousLayer->getWeights()(iNeuron, j);
-				}
-				currentLayer->getInputs()(iNeuron) = sum;
-				currentLayer->getOutputs()(iNeuron) = sigmoid(sum);
-			});
 
-			if (THREAD_POOL_SIZE <= 0) {
-				for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-					job(iNeuron);
-				}
-			}
-			else {
-				threadPool.addJob(job, currentLayer->getNeuronCount());			
-				threadPool.wait();
-			}
+			multiplyAndAdd(previousLayer->getWeights(), previousLayer->getOutputs(), currentLayer->getBiases(), currentLayer->getInputs());
+			currentLayer->getOutputs().applyFunction(currentLayer->getInputs(), &Network::sigmoid);
 		}
 	}
 
@@ -92,7 +76,7 @@ public:
 				}
 				else{
 					for (int iNextNeuron = 0; iNextNeuron < nextLayer->getNeuronCount(); iNextNeuron++) {
-						errorSum += nextLayer->getErrors()(iNextNeuron) * currentLayer->getWeights()(iNextNeuron, iNeuron);
+						errorSum += nextLayer->getErrors()(iNextNeuron) * currentLayer->getWeights()(iNeuron, iNextNeuron);
 					}
 				}
 				errorSum *= sigmoidDerivative(currentLayer->getInputs()(iNeuron));
@@ -101,7 +85,7 @@ public:
 				// sum errors for bias and weights
 				currentLayer->getErrorsSums()(iNeuron) += errorSum;
 				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					previousLayer->getWeightErrorsSums()(iNeuron, iPrevNeuron) += errorSum * previousLayer->getOutputs()(iPrevNeuron);
+					previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron) += errorSum * previousLayer->getOutputs()(iPrevNeuron);
 				}
 			}
 		}
@@ -114,8 +98,8 @@ public:
 
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
 				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					float delta = previousLayer->getWeightErrorsSums()(iNeuron, iPrevNeuron);
-					previousLayer->getWeights()(iNeuron, iPrevNeuron) += delta * this->learningRate;
+					float delta = previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron);
+					previousLayer->getWeights()(iPrevNeuron, iNeuron) += delta * this->learningRate;
 				}
 				currentLayer->getBiases()(iNeuron) += currentLayer->getErrorsSums()(iNeuron) * this->learningRate;
 			}
@@ -128,7 +112,7 @@ public:
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
 				currentLayer->getErrorsSums()(iNeuron) = 0.0f;
 				for (int iWeight = 0; iWeight < currentLayer->getOutputSize(); iWeight++) {
-					currentLayer->getWeightErrorsSums()(iWeight, iNeuron) = 0.0f;
+					currentLayer->getWeightErrorsSums()(iNeuron, iWeight) = 0.0f;
 				}
 			}
 		}
@@ -189,8 +173,12 @@ public:
 			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
 				float bias = layer->getBiases()(iNeuron);
 				file.write((char*)&bias, sizeof(float));
-				
-				file.write((char*)(layer->getWeights().dataAt(0, iNeuron)), sizeof(float) * weightCount);
+				if (weightCount > 0) {
+					for (int iWeight = 0; iWeight < weightCount; iWeight++) {
+						float weight = layer->getWeights()(iNeuron, iWeight);
+						file.write((char*)&weight, sizeof(float));
+					}
+				}
 			}
 		}
 
@@ -217,12 +205,18 @@ public:
 
 			layers[iLayer] = new Layer(neuronCount, weightCount);
 
+			std::cout << "Layer " << iLayer << ": " << neuronCount << " neurons, " << weightCount << " weights\n";
+
 			for (int iNeuron = 0; iNeuron < neuronCount; iNeuron++) {
 				float bias;
 				file.read((char*)&bias, sizeof(float));
 				layers[iLayer]->getBiases()(iNeuron) = bias;
-
-				file.read((char*)(layers[iLayer]->getWeights().dataAt(0, iNeuron)), sizeof(float) * weightCount);
+				if (weightCount > 0) {
+					for (int iWeight = 0; iWeight < weightCount; iWeight++) {
+						float* weight = &(layers[iLayer]->getWeights()(iNeuron, iWeight));
+						file.read((char*)weight, sizeof(float));
+					}
+				}
 			}
 		}
 
@@ -244,11 +238,11 @@ private:
 	int layerCount;
 	float learningRate;
 
-	float sigmoid(float x) {
+	static float sigmoid(float x) {
 		return 1.0f / (1.0f + std::exp(-x));
 	}
 
-	float sigmoidDerivative(float x) {
+	static float sigmoidDerivative(float x) {
 		return sigmoid(x) * (1.0f - sigmoid(x));
 	}
 };
