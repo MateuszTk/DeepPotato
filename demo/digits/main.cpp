@@ -9,7 +9,7 @@
 
 // number of threads used for training, set to 0 or not define to disable multithreading
 // use multithreading only with big networks, otherwise it will be slower
-// #define THREAD_POOL_SIZE 4
+#define THREAD_POOL_SIZE 4
 
 // enable testing
 #define TEST
@@ -84,9 +84,11 @@ std::pair<hlp::ivec2, hlp::ivec2> boundingBox(const unsigned char* image, int wi
 	return std::make_pair(minBB, maxBB);
 }
 
-void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, TrainingData& trData, int testDataIndex);
+void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, int testDataIndex);
 
 int main(int argc, char** argv) {
+	testMatrix();
+
 	IDX::IDX_Data trainImages = IDX::import("dataset/train-images.idx3-ubyte");
 	IDX::printData(trainImages);
 	IDX::IDX_Data trainLabels = IDX::import("dataset/train-labels.idx1-ubyte");
@@ -121,13 +123,19 @@ int main(int argc, char** argv) {
 	Network network({ 28 * 28, 100, 100, 10 });
 	network.setLearningRate(0.1f);
 
-	TrainingData trData(28 * 28, 10);
+	std::vector<TrainingData> trData;
+	trData.reserve(BATCH_SIZE);
+	for (int i = 0; i < BATCH_SIZE; i++) {
+		trData.emplace_back(28 * 28, 10);
+	}
+
+	TrainingData testData(28 * 28, 10);
 
 	auto start = std::chrono::high_resolution_clock::now();
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 
 	int lastIteration = 0;
-	int iteration = 0;
+	int iteration = -1;
 	while (true) {
 		iteration++;
 
@@ -146,24 +154,30 @@ int main(int argc, char** argv) {
 
 		randomOffsetX = ((randomOffsetX + bb.first.x >= 0) ? randomOffsetX : (-bb.first.x));
 		randomOffsetY = ((randomOffsetY + bb.first.y >= 0) ? randomOffsetY : (-bb.first.y));
+
+		int batchSample = iteration % BATCH_SIZE;
+
 		// set inputs
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				int randomX = x - randomOffsetX;
 				int randomY = y - randomOffsetY;
 				if (randomX < 0 || randomX >= width || randomY < 0 || randomY >= height) {
-					trData.inputs(y * width + x) = 0.0f;
+					trData[batchSample].inputs(y * width + x) = 0.0f;
 					continue;
 				}
-				trData.inputs(y * width + x) = (float)image[randomY * width + randomX] / 255.0f;
+				trData[batchSample].inputs(y * width + x) = (float)image[randomY * width + randomX] / 255.0f;
 			}
 		}
 		// set outputs
 		for (int i = 0; i < 10; i++) {
-			trData.outputs(i) = (i == label) ? 1.0f : 0.0f;
+			trData[batchSample].outputs(i) = (i == label) ? 1.0f : 0.0f;
 		}
-		// train network
-		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
+
+		if (iteration % BATCH_SIZE == BATCH_SIZE - 1) {
+			// train network
+			network.trainBatch(trData);
+		}
 
 #ifdef TEST
 #ifdef AUTO_TEST
@@ -189,7 +203,7 @@ int main(int argc, char** argv) {
 #ifdef TEST
 #ifdef AUTO_TEST
 				int testDataIndex = (iteration / testDelay) % testImages.header.sizes[0];
-				autoTest(iteration, testImages, testLabels, display, network, width, height, imageSize, previewSizeMultiplier, trData, testDataIndex);
+				autoTest(iteration, testImages, testLabels, display, network, width, height, imageSize, previewSizeMultiplier, testDataIndex);
 
 				std::cout << "Training speed: " << (iteration - lastIteration) / diff.count() * 1000 << " iterations per second\n";
 				lastIteration = iteration;
@@ -206,19 +220,19 @@ int main(int argc, char** argv) {
 
 				for (int y = 0; y < height; y++) {
 					for (int x = 0; x < width; x++) {
-						trData.inputs(y * width + x) = canvas.getPixel({ x, y }).r / 255.0f;
+						testData.inputs(y * width + x) = canvas.getPixel({x, y}).r / 255.0f;
 					}
 				}
 
 				// feed input to network
-				network.setInputs(trData);
-				network.propagateForward();
+				network.setInputs(testData, 0);
+				network.propagateForward(0);
 
 				// find output with highest value
 				int maxIndex = 0;
-				float maxOutput = network.getOutputLayer()->getOutputs()(0);
+				float maxOutput = network.getOutputLayer()->getOutputs()(0, 0);
 				for (int i = 1; i < 10; i++) {
-					float output = network.getOutputLayer()->getOutputs()(i);
+					float output = network.getOutputLayer()->getOutputs()(i, 0);
 					if (output > maxOutput) {
 						maxOutput = output;
 						maxIndex = i;
@@ -230,7 +244,7 @@ int main(int argc, char** argv) {
 				std::cout << "Iteration: " << iteration << '\n';
 #endif // TRAIN
 				for (int i = 0; i < 10; i++) {
-					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i) << " ";
+					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i, 0) << " ";
 					if (i == maxIndex) {
 						std::cout << " ^";
 					}
@@ -273,7 +287,9 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, TrainingData& trData, int testDataIndex) {
+void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, int testDataIndex) {
+	static TrainingData trData(28 * 28, 10);
+
 	// Test network
 	const unsigned char* timage = testImages.data + testDataIndex * imageSize;
 	const unsigned char tlabel = testLabels.data[testDataIndex];
@@ -286,17 +302,18 @@ void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Dat
 		trData.outputs(i) = (i == tlabel) ? 1.0f : 0.0f;
 	}
 
-	network.setInputs(trData);
-	network.propagateForward();
+	const unsigned int testSlot = 0;
+	network.setInputs(trData, testSlot);
+	network.propagateForward(testSlot);
 
 	displayInputImage(display, trData, width, height, previewSizeMultiplier);
 
-	float error = network.getError(trData);
+	float error = network.getError(trData, testSlot);
 
 	int maxIndex = 0;
-	float maxOutput = network.getOutputLayer()->getOutputs()(0);
+	float maxOutput = network.getOutputLayer()->getOutputs()(0, testSlot);
 	for (int i = 1; i < 10; i++) {
-		float output = network.getOutputLayer()->getOutputs()(i);
+		float output = network.getOutputLayer()->getOutputs()(i, testSlot);
 		if (output > maxOutput) {
 			maxOutput = output;
 			maxIndex = i;
@@ -305,7 +322,7 @@ void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Dat
 
 	std::cout << "Iteration: " << iteration << ", TestId: " << testDataIndex << ", Error: " << std::fixed << std::setprecision(8) << error << std::endl;
 	for (int i = 0; i < 10; i++) {
-		std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i) << " ";
+		std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i, testSlot) << " ";
 		if (i == tlabel) {
 			std::cout << " *";
 		}

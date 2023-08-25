@@ -9,7 +9,7 @@
 #include <condition_variable>
 
 struct Job {
-	std::function<void(int)> job;
+	std::function<void(int, int)> job;
 	unsigned int repeat;
 	unsigned int repeatsLeft;
 };
@@ -30,7 +30,7 @@ public:
 		}
 	}
 
-	void addJob(const std::function<void(int)>& job, unsigned int repeat) {
+	void addJob(const std::function<void(int, int)>& job, unsigned int repeat) {
 		std::unique_lock<std::mutex> lock(mutex);
 		this->jobs.push(Job(job, repeat, repeat));
 		if (repeat >= threads.size()) {
@@ -117,7 +117,7 @@ private:
 			}
 			while (repeat > 0) {
 				//std::cout << "Thread " << threadId <<  " " << job.repeatsLeft - repeat << std::endl;
-				job.job(job.repeatsLeft - repeat);
+				job.job(job.repeatsLeft - repeat, threadId);
 				repeat--;
 			}
 			repeat = 0;

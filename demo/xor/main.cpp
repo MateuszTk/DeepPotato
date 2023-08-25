@@ -23,9 +23,9 @@ int main() {
 		int trDataIndex = iteration % trainingData.size();
 		const TrainingData& trData = trainingData[trDataIndex];
 		bool endOfBatch = (iteration % trainingData.size()) == (trainingData.size() - 1);
-		network.train(trData, endOfBatch);
+		network.train(trData, endOfBatch, 0);
 		if (iteration % 100 == 0) {
-			float error = network.getError(trData);
+			float error = network.getError(trData, 0);
 			std::cout << "Iteration: " << iteration << ", Error: " << std::fixed << error << std::endl;
 		}
 	}

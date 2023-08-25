@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <cassert>
 
 #include "Matrix.hpp"
 #include "ThreadPool.hpp"
@@ -35,35 +36,35 @@ struct TrainingData {
 
 class Network {
 public:
-	Network(const std::initializer_list<int>& layersSizes) : learningRate(0.1f), threadPool(THREAD_POOL_SIZE) {
+	Network(const std::initializer_list<int>& layersSizes) : learningRate(0.1f), threadPool(THREAD_POOL_SIZE), batchSize(std::max<int>(THREAD_POOL_SIZE, 1)) {
 		this->layerCount = layersSizes.size();
 		this->layers = new Layer*[layerCount];
 		int i = 0;
 		for (auto it = layersSizes.begin(); it < layersSizes.end(); it++) {
 			int nextLayerSize = (i + 1 >= layerCount) ? 0 : *(it + 1);
-			Layer* layer = new Layer(*it, nextLayerSize);
+			Layer* layer = new Layer(*it, nextLayerSize, batchSize);
 			layers[i] = layer;
 			i++;
 		}
 		resetErrorSums();
 	}
 
-	void setInputs(const TrainingData& data) {
-		layers[0]->getInputs() = data.inputs;
-		layers[0]->getOutputs() = data.inputs;
+	void setInputs(const TrainingData& data, unsigned int batch) {
+		*layers[0]->getInputs()(batch) = data.inputs;
+		*layers[0]->getOutputs()(batch) = data.inputs;
 	}
 
-	void propagateForward() {
+	void propagateForward(unsigned int batch) {
 		for (int layer = 1; layer < layerCount; layer++) {
 			Layer* currentLayer = layers[layer];
 			Layer* previousLayer = layers[layer - 1];
 
-			multiplyAndAdd(previousLayer->getWeights(), previousLayer->getOutputs(), currentLayer->getBiases(), currentLayer->getInputs());
+			multiplyAndAdd(previousLayer->getWeights(), *previousLayer->getOutputs()(batch), currentLayer->getBiases(), *currentLayer->getInputs()(batch));
 			currentLayer->getOutputs().applyFunction(currentLayer->getInputs(), &Network::sigmoid);
 		}
 	}
 
-	void propagateError(const TrainingData& targetData) {
+	void propagateError(const TrainingData& targetData, unsigned int batch) {
 		for (int layer = layerCount - 1; layer > 0; layer--) {
 			Layer* currentLayer = layers[layer];
 			Layer* nextLayer = layers[layer + 1];
@@ -72,67 +73,90 @@ public:
 			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
 				float errorSum = 0.0f;
 				if (layer == layerCount - 1) {
-					errorSum = targetData.outputs(iNeuron) - currentLayer->getOutputs()(iNeuron);
+					errorSum = targetData.outputs(iNeuron) - currentLayer->getOutputs()(iNeuron, batch);
 				}
 				else{
 					for (int iNextNeuron = 0; iNextNeuron < nextLayer->getNeuronCount(); iNextNeuron++) {
-						errorSum += nextLayer->getErrors()(iNextNeuron) * currentLayer->getWeights()(iNeuron, iNextNeuron);
+						errorSum += nextLayer->getErrors()(iNextNeuron, batch) * currentLayer->getWeights()(iNeuron, iNextNeuron);
 					}
 				}
-				errorSum *= sigmoidDerivative(currentLayer->getInputs()(iNeuron));
-				currentLayer->getErrors()(iNeuron) = errorSum;
+				errorSum *= sigmoidDerivative(currentLayer->getInputs()(iNeuron, batch));
+				currentLayer->getErrors()(iNeuron, batch) = errorSum;
 
 				// sum errors for bias and weights
-				currentLayer->getErrorsSums()(iNeuron) += errorSum;
+				currentLayer->getErrorsSums()(iNeuron, batch) += errorSum;
 				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron) += errorSum * previousLayer->getOutputs()(iPrevNeuron);
+					previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron, batch) += errorSum * previousLayer->getOutputs()(iPrevNeuron, batch);
 				}
 			}
 		}
 	}
 
 	void updateWeightsAndBiases() {
-		for (int layer = 1; layer < layerCount; layer++) {
-			Layer* currentLayer = layers[layer];
-			Layer* previousLayer = layers[layer - 1];
+		for (int batch = 0; batch < batchSize; batch++) {
+			for (int layer = 1; layer < layerCount; layer++) {
+				Layer* currentLayer = layers[layer];
+				Layer* previousLayer = layers[layer - 1];
 
-			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-				for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
-					float delta = previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron);
-					previousLayer->getWeights()(iPrevNeuron, iNeuron) += delta * this->learningRate;
+				for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
+					for (int iPrevNeuron = 0; iPrevNeuron < previousLayer->getNeuronCount(); iPrevNeuron++) {
+						float delta = previousLayer->getWeightErrorsSums()(iPrevNeuron, iNeuron, batch);
+						previousLayer->getWeights()(iPrevNeuron, iNeuron) += delta * this->learningRate;
+					}
+					currentLayer->getBiases()(iNeuron) += currentLayer->getErrorsSums()(iNeuron, batch) * this->learningRate;
 				}
-				currentLayer->getBiases()(iNeuron) += currentLayer->getErrorsSums()(iNeuron) * this->learningRate;
 			}
 		}
 	}
 
 	void resetErrorSums() {
-		for (int layer = 0; layer < layerCount; layer++) {
-			Layer* currentLayer = layers[layer];
-			for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
-				currentLayer->getErrorsSums()(iNeuron) = 0.0f;
-				for (int iWeight = 0; iWeight < currentLayer->getOutputSize(); iWeight++) {
-					currentLayer->getWeightErrorsSums()(iNeuron, iWeight) = 0.0f;
+		for (int batch = 0; batch < batchSize; batch++) {
+			for (int layer = 0; layer < layerCount; layer++) {
+				Layer* currentLayer = layers[layer];
+				for (int iNeuron = 0; iNeuron < currentLayer->getNeuronCount(); iNeuron++) {
+					currentLayer->getErrorsSums()(iNeuron, batch) = 0.0f;
+					for (int iWeight = 0; iWeight < currentLayer->getOutputSize(); iWeight++) {
+						currentLayer->getWeightErrorsSums()(iNeuron, iWeight, batch) = 0.0f;
+					}
 				}
 			}
 		}
 	}
 
-	void train(const TrainingData& data, bool endOfBatch) {
-		setInputs(data);
-		propagateForward();
-		propagateError(data);
+	void train(const TrainingData& data, bool endOfBatch, unsigned int batchId) {
+		setInputs(data, batchId);
+		propagateForward(batchId);
+		propagateError(data, batchId);
 		if (endOfBatch) {
 			updateWeightsAndBiases();
 			resetErrorSums();
 		}
 	}
 
-	float getError(const TrainingData& data) {
+	void trainBatch(const std::vector<TrainingData>& data) {
+		if (THREAD_POOL_SIZE > 0) {
+			for (int i = 0; i < data.size(); i++) {
+				threadPool.addJob([this, &data, i](int a, int threadId) {
+					train(data[i], false, threadId);
+				}, 1);
+			}
+			threadPool.wait();
+		}
+		else {
+			for (int i = 0; i < data.size(); i++) {
+				train(data[i], false, 0);
+			}
+		}
+
+		updateWeightsAndBiases();
+		resetErrorSums();
+	}
+
+	float getError(const TrainingData& data, unsigned int batch) {
 		float error = 0.0f;
 		const int neuronCount = layers[layerCount - 1]->getNeuronCount();
 		for (int i = 0; i < neuronCount; i++) {
-			float delta = data.outputs(i) - layers[layerCount - 1]->getOutputs()(i);
+			float delta = data.outputs(i) - layers[layerCount - 1]->getOutputs()(i, batch);
 			error += delta * delta;
 		}
 		return error / neuronCount;
@@ -203,7 +227,7 @@ public:
 			int weightCount;
 			file.read((char*)&weightCount, sizeof(int));
 
-			layers[iLayer] = new Layer(neuronCount, weightCount);
+			layers[iLayer] = new Layer(neuronCount, weightCount, batchSize);
 
 			std::cout << "Layer " << iLayer << ": " << neuronCount << " neurons, " << weightCount << " weights\n";
 
@@ -237,6 +261,7 @@ private:
 	Layer** layers;
 	int layerCount;
 	float learningRate;
+	unsigned int batchSize;
 
 	static float sigmoid(float x) {
 		return 1.0f / (1.0f + std::exp(-x));

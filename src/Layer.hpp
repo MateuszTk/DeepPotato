@@ -10,16 +10,18 @@ float randomNormalizedFloat() {
 
 class Layer {
 public:
-	Layer(unsigned int neuronCount, unsigned int outputSize)
-		: neuronCount(neuronCount), outputSize(outputSize), weights({ neuronCount, outputSize }), biases({ neuronCount }), weightErrorsSums({ neuronCount, outputSize }),
-		errorsSums({ neuronCount }), outputs({ neuronCount }), inputs({ neuronCount }), errors({ neuronCount }) {
+	Layer(unsigned int neuronCount, unsigned int outputSize, unsigned int batches)
+		: neuronCount(neuronCount), outputSize(outputSize), weights({ neuronCount, outputSize }), biases({ neuronCount }), weightErrorsSums({ neuronCount, outputSize, batches }),
+		errorsSums({ neuronCount, batches }), outputs({ neuronCount, batches }), inputs({ neuronCount, batches }), errors({ neuronCount, batches }) {
 
 
 		for (int i = 0; i < neuronCount; i++) {
 			biases(i) = randomNormalizedFloat();
 			for (int j = 0; j < outputSize; j++) {
 				weights(i, j) = randomNormalizedFloat();
-				weightErrorsSums(i, j) = 0.0f;
+				for (int k = 0; k < batches; k++) {
+					weightErrorsSums(i, j, k) = 0.0f;
+				}
 			}
 		}
 	}
@@ -40,23 +42,23 @@ public:
 		return biases;
 	}
 
-	Matrix2D<float>& getWeightErrorsSums() {
+	Matrix3D<float>& getWeightErrorsSums() {
 		return weightErrorsSums;
 	}
 
-	Matrix1D<float>& getErrorsSums() {
+	Matrix2D<float>& getErrorsSums() {
 		return errorsSums;
 	}
 
-	Matrix1D<float>& getOutputs() {
+	Matrix2D<float>& getOutputs() {
 		return outputs;
 	}
 
-	Matrix1D<float>& getInputs() {
+	Matrix2D<float>& getInputs() {
 		return inputs;
 	}
 
-	Matrix1D<float>& getErrors() {
+	Matrix2D<float>& getErrors() {
 		return errors;
 	}
 
@@ -67,11 +69,11 @@ private:
 	Matrix2D<float> weights;
 	Matrix1D<float> biases;
 
-	Matrix2D<float> weightErrorsSums;
-	Matrix1D<float> errorsSums;
+	Matrix3D<float> weightErrorsSums;
+	Matrix2D<float> errorsSums;
 
-	Matrix1D<float> outputs;
-	Matrix1D<float> inputs;
+	Matrix2D<float> outputs;
+	Matrix2D<float> inputs;
 
-	Matrix1D<float> errors;
+	Matrix2D<float> errors;
 };

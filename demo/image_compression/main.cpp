@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <chrono>
 
+#define THREAD_POOL_SIZE 4
+
 #include "Layer.hpp"
 #include "Network.hpp"
 
@@ -35,20 +37,28 @@ int main(int argc, char** argv) {
 	Network network({ 2, 30, 20, 10, 3 });
 	network.setLearningRate(0.1f);
 
-	TrainingData trData(2, 3);
+	std::vector<TrainingData> trData;
+	trData.reserve(BATCH_SIZE);
+	for (int i = 0; i < BATCH_SIZE; i++) {
+		trData.emplace_back(2, 3);
+	}
 
 	auto start = std::chrono::high_resolution_clock::now();
 
 	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 	for (int iteration = 0; iteration < 1000000000; iteration++) {
-		int randomIndex = (rand() * samplingMultiplier) % imageSize;
-		trData.outputs(0) = (float)imageData[randomIndex * channels + 0] / 255.0f;
-		trData.outputs(1) = (float)imageData[randomIndex * channels + 1] / 255.0f;
-		trData.outputs(2) = (float)imageData[randomIndex * channels + 2] / 255.0f;
-		trData.inputs(0) = (float)(randomIndex % width) / (float)width;
-		trData.inputs(1) = (float)(randomIndex / width) / (float)height;
+		int trDataIndex = iteration % BATCH_SIZE;
 
-		network.train(trData, iteration % BATCH_SIZE == BATCH_SIZE - 1);
+		int randomIndex = (rand() * samplingMultiplier) % imageSize;
+		trData[trDataIndex].outputs(0) = (float)imageData[randomIndex * channels + 0] / 255.0f;
+		trData[trDataIndex].outputs(1) = (float)imageData[randomIndex * channels + 1] / 255.0f;
+		trData[trDataIndex].outputs(2) = (float)imageData[randomIndex * channels + 2] / 255.0f;
+		trData[trDataIndex].inputs(0) = (float)(randomIndex % width) / (float)width;
+		trData[trDataIndex].inputs(1) = (float)(randomIndex / width) / (float)height;
+
+		if (trDataIndex == BATCH_SIZE - 1) {
+			network.trainBatch(trData);
+		}
 
 		if (iteration % 100000 == 0) {
 			float error = 0.0f;
@@ -56,14 +66,14 @@ int main(int argc, char** argv) {
 			const float previewHeight = height * previewSizeMultiplier;
 			for (int y = 0; y < previewHeight; y++) {
 				for (int x = 0; x < previewWidth; x++) {
-					trData.inputs(0) = (float)x / (float)previewWidth;
-					trData.inputs(1) = (float)y / (float)previewHeight;
-					network.setInputs(trData);
-					network.propagateForward();
-					error += network.getError(trData);
-					float r = network.getOutputLayer()->getOutputs()(0);
-					float g = network.getOutputLayer()->getOutputs()(1);
-					float b = network.getOutputLayer()->getOutputs()(2);
+					trData[0].inputs(0) = (float)x / (float)previewWidth;
+					trData[0].inputs(1) = (float)y / (float)previewHeight;
+					network.setInputs(trData[0], 0);
+					network.propagateForward(0);
+					error += network.getError(trData[0], 0);
+					float r = network.getOutputLayer()->getOutputs()(0, 0);
+					float g = network.getOutputLayer()->getOutputs()(1, 0);
+					float b = network.getOutputLayer()->getOutputs()(2, 0);
 					hlp::color color = { (unsigned char)(r * 255.0f), (unsigned char)(g * 255.0f), (unsigned char)(b * 255.0f) };
 					display.drawPixel(x, y, color);					
 				}
