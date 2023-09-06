@@ -7,6 +7,7 @@
 #include <functional>
 #include <queue>
 #include <condition_variable>
+#include <cstring>
 
 struct Job {
 	std::function<void(int, int)> job;
@@ -101,6 +102,9 @@ private:
 				std::unique_lock<std::mutex> lock(mutex);
 				while (jobs.size() <= 0) {
 					cv.wait(lock);
+					if (terminate) {
+						return;
+					}
 				}
 				occupied[threadId] = true;
 				Job* front = &jobs.front();

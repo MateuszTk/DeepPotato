@@ -8,7 +8,6 @@
 #define BATCH_SIZE 32
 
 // number of threads used for training, set to 0 or not define to disable multithreading
-// use multithreading only with big networks, otherwise it will be slower
 #define THREAD_POOL_SIZE 4
 
 // enable testing
@@ -87,8 +86,6 @@ std::pair<hlp::ivec2, hlp::ivec2> boundingBox(const unsigned char* image, int wi
 void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, int testDataIndex);
 
 int main(int argc, char** argv) {
-	testMatrix();
-
 	IDX::IDX_Data trainImages = IDX::import("dataset/train-images.idx3-ubyte");
 	IDX::printData(trainImages);
 	IDX::IDX_Data trainLabels = IDX::import("dataset/train-labels.idx1-ubyte");
