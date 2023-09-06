@@ -55,9 +55,9 @@ public:
 	}
 
 	void wait() {
-		volatile int i = 0;
+		std::unique_lock lock(waitMutex);
 		while (isOccupied()) {
-			i++;
+			workDone.wait(lock);
 		}
 	}
 
@@ -77,8 +77,10 @@ public:
 private:
 	std::vector<std::thread> threads;
 	std::mutex mutex;
+	std::mutex waitMutex;
 	std::queue<Job> jobs;
 	std::condition_variable cv;
+	std::condition_variable workDone;
 	bool* occupied;
 	bool terminate = false;
 
@@ -122,6 +124,10 @@ private:
 			}
 			repeat = 0;
 			occupied[threadId] = false;
+			{
+				std::unique_lock<std::mutex> lock(waitMutex);
+				workDone.notify_all();
+			}
 		}
 	}
 };
