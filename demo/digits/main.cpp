@@ -13,14 +13,15 @@
 // enable testing
 #define TEST
 // enable training
-//#define TRAIN
+#define TRAIN
 
 // When defined, the program runs a tests and show the results automatically,
 //		'*' is the correct answer, '^' is the network's answer
 // When undefined, the program allows the user to draw a digits to test the network while it's training
-//#define AUTO_TEST
+#define AUTO_TEST
 
-#define WEBCAM
+// When defined, the program uses the webcam as input
+// #define WEBCAM
 
 // save location (press key 'S')
 #define SAVE_PATH "network.dpn"
@@ -49,30 +50,39 @@
 #include "engine.h"
 #include "Canvas.hpp"
 
+#ifdef WEBCAM
 #include "Webcam.hpp"
+#endif
+
 #include "Helper.hpp"
+
 #include "Test.hpp"
 #include "AutoTest.hpp"
+#include "WebCamTest.hpp"
+#include "CanvasTest.hpp"
+
+#ifdef AUTO_TEST
+	#define TEST_DELAY 1000
+#else
+	#ifdef WEBCAM
+		#define TEST_DELAY 50
+	#else
+		#define TEST_DELAY 50
+	#endif
+#endif
+
+
 
 int main(int argc, char** argv) {
-	Webcam webcam(0);
 
 	IDX::IDX_Data trainImages = IDX::import("dataset/train-images.idx3-ubyte");
 	IDX::printData(trainImages);
 	IDX::IDX_Data trainLabels = IDX::import("dataset/train-labels.idx1-ubyte");
 	IDX::printData(trainLabels);
 
-#ifdef AUTO_TEST
-	IDX::IDX_Data testImages = IDX::import("dataset/t10k-images.idx3-ubyte");
-	IDX::printData(testImages);
-	IDX::IDX_Data testLabels = IDX::import("dataset/t10k-labels.idx1-ubyte");
-	IDX::printData(testLabels);
-#endif // AUTO_TEST
-
 	const int width = trainImages.header.sizes[1];
 	const int height = trainImages.header.sizes[2];
 	const int imageSize = width * height;
-	const float previewSizeMultiplier = (PREVIEW_WIDTH > 0) ? (float)PREVIEW_WIDTH / width : 1.0f;
 
 	// calculate bounding boxes for each digit
 	std::vector<std::pair<hlp::ivec2, hlp::ivec2>> boundingBoxes(trainImages.header.sizes[0]);
@@ -81,10 +91,17 @@ int main(int argc, char** argv) {
 		boundingBoxes[i] = boundingBox(image, width, height);
 	}
 
-	engine::Display display(width * previewSizeMultiplier, height * previewSizeMultiplier, "Neural Network", false);
-
-	Canvas canvas(width, height);
-	canvas.setScale(previewSizeMultiplier);
+#ifdef TEST
+	#ifdef AUTO_TEST
+		Test* test = new AutoTest("dataset/t10k-images.idx3-ubyte", "dataset/t10k-labels.idx1-ubyte");
+	#else
+		#ifdef WEBCAM
+			Test* test = new WebCamTest(0);
+		#else
+			Test* test = new CanvasTest();
+		#endif
+	#endif
+#endif
 
 	srand(time(NULL));
 
@@ -97,10 +114,7 @@ int main(int argc, char** argv) {
 		trData.emplace_back(28 * 28, 10);
 	}
 
-	TrainingData testData(28 * 28, 10);
-
 	auto start = std::chrono::high_resolution_clock::now();
-	const int samplingMultiplier = 1 + imageSize / RAND_MAX;
 
 	int lastIteration = 0;
 	int iteration = -1;
@@ -146,119 +160,22 @@ int main(int argc, char** argv) {
 			// train network
 			network.trainBatch(trData);
 		}
-
-#ifdef TEST
-#ifdef AUTO_TEST
-		const int testDelay = 4000;
-#else // !AUTO_TEST
-		const int testDelay = 100;
-#endif // AUTO_TEST
-#else // !TEST
-		const int testDelay = 5000;
-#endif // TEST
-
-#else // !TRAIN
-		const int testDelay = 1;
 #endif // TRAIN
 
-
-		if (iteration % testDelay == 0) {
+		if (iteration % 100 == 0) {
 			auto end = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> diff = end - start;
 
-			if (diff.count() >= 50) {
+			if (diff.count() >= TEST_DELAY) {
 				start = end;
 #ifdef TEST
-#ifdef AUTO_TEST
-				int testDataIndex = (iteration / testDelay) % testImages.header.sizes[0];
-				autoTest(iteration, testImages, testLabels, display, network, width, height, imageSize, previewSizeMultiplier, testDataIndex);
+				test->run(network);
 
+#ifdef TRAIN
 				std::cout << "Training speed: " << (iteration - lastIteration) / diff.count() * 1000 << " iterations per second\n";
 				lastIteration = iteration;
-#ifndef TRAIN
-				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-#endif // !TRAIN
-#else // !AUTO_TEST
-#ifdef WEBCAM
-				
-				Mat frame = webcam.getFrame();
-				if (frame.empty()) {
-					std::cout << "Failed to get frame from webcam\n";
-					break;
-				}
-
-				std::vector<std::pair<Rect, Mat>> digits = webcam.findDigits(frame);
-				std::vector<int> labels;
-
-				for (std::pair<Rect, Mat>& digit : digits) {
-					for (int y = 0; y < height; y++) {
-						for (int x = 0; x < width; x++) {
-							testData.inputs(y * width + x) = digit.second.at<unsigned char>(y, x) / 255.0f;
-						}
-					}
-
-					// feed input to network
-					network.setInputs(testData, 0);
-					network.propagateForward(0);
-
-					// find output with highest value
-					int maxIndex = 0;
-					float maxOutput = network.getOutputLayer()->getOutputs()(0, 0);
-					for (int i = 1; i < 10; i++) {
-						float output = network.getOutputLayer()->getOutputs()(i, 0);
-						if (output > maxOutput) {
-							maxOutput = output;
-							maxIndex = i;
-						}
-					}
-
-					labels.push_back(maxIndex);
-					std::cout << maxIndex << " ";
-				}
-				displayInputImage(display, testData, width, height, previewSizeMultiplier);
-				std::cout << '\n';
-#else // !WEBCAM
-				//displayInputImage(display, trData, width, height, previewSizeMultiplier);
-
-				// allow user to draw a digit on the canvas
-				canvas.paint();
-				canvas.drawCanvas(display);
-
-				for (int y = 0; y < height; y++) {
-					for (int x = 0; x < width; x++) {
-						testData.inputs(y * width + x) = canvas.getPixel({x, y}).r / 255.0f;
-					}
-				}
-
-				// feed input to network
-				network.setInputs(testData, 0);
-				network.propagateForward(0);
-
-				// find output with highest value
-				int maxIndex = 0;
-				float maxOutput = network.getOutputLayer()->getOutputs()(0, 0);
-				for (int i = 1; i < 10; i++) {
-					float output = network.getOutputLayer()->getOutputs()(i, 0);
-					if (output > maxOutput) {
-						maxOutput = output;
-						maxIndex = i;
-					}
-				}
-
-				// print output
-#ifdef TRAIN
-				std::cout << "Iteration: " << iteration << '\n';
 #endif // TRAIN
-				for (int i = 0; i < 10; i++) {
-					std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i, 0) << " ";
-					if (i == maxIndex) {
-						std::cout << " ^";
-					}
-					std::cout << std::endl;
-				}
-				std::cout << std::endl;
-#endif // WEBCAM
-#endif // AUTO_TEST
+
 #else // !TEST
 				std::cout << "Iteration: " << iteration << " ,";
 				std::cout << "Training speed: " << (iteration - lastIteration) / diff.count() * 1000 << " iterations per second\n";
@@ -273,7 +190,11 @@ int main(int argc, char** argv) {
 					quit = true;
 				}
 				if (keystates[SDL_SCANCODE_SPACE]) {
-					canvas.clear();
+					// clear canvas if space is pressed and is instance of CanvasTest
+					CanvasTest* canvasTest = dynamic_cast<CanvasTest*>(test);
+					if (canvasTest != nullptr) {
+						canvasTest->clearCanvas();
+					}
 				}
 				if (keystates[SDL_SCANCODE_S]) {
 					network.save(SAVE_PATH);
@@ -281,14 +202,16 @@ int main(int argc, char** argv) {
 				if (keystates[SDL_SCANCODE_L]) {
 					network.load(LOAD_PATH);
 				}
-				// display canvas
-				display.printFrame();
-
 				if (quit) {
 					return 0;
 				}
 			}
 		}
 	}
+
+#ifdef TEST
+	delete test;
+#endif // TEST	
+
 	return 0;
 }

@@ -7,7 +7,7 @@ public:
 	AutoTest(const char* testImagesSrc, const char* testLabelsSrc) :
 		testImages(IDX::import(testImagesSrc)),
 		testLabels(IDX::import(testLabelsSrc)),
-		Test(testImages.header.sizes[1], testImages.header.sizes[2]),
+		Test(28, 28),
 		testDataIndex(0) {
 
 		IDX::printData(this->testImages);
@@ -15,27 +15,25 @@ public:
 	}
 
 	void run(Network& network) override {
-		static TrainingData trData(28 * 28, 10);
-
 		// Test network
 		const unsigned char* timage = testImages.data + testDataIndex * imageSize;
 		const unsigned char tlabel = testLabels.data[testDataIndex];
 
 		for (int i = 0; i < 28 * 28; i++) {
-			trData.inputs(i) = (float)timage[i] / 255.0f;
+			testData.inputs(i) = (float)timage[i] / 255.0f;
 		}
 
 		for (int i = 0; i < 10; i++) {
-			trData.outputs(i) = (i == tlabel) ? 1.0f : 0.0f;
+			testData.outputs(i) = (i == tlabel) ? 1.0f : 0.0f;
 		}
 
 		const unsigned int testSlot = 0;
-		network.setInputs(trData, testSlot);
+		network.setInputs(testData, testSlot);
 		network.propagateForward(testSlot);
 
-		displayInputImage(display, trData, width, height, previewSizeMultiplier);
+		displayInputImage(display, testData, width, height, previewSizeMultiplier);
 
-		float error = network.getError(trData, testSlot);
+		float error = network.getError(testData, testSlot);
 
 		int maxIndex = 0;
 		float maxOutput = network.getOutputLayer()->getOutputs()(0, testSlot);
@@ -62,6 +60,10 @@ public:
 			std::cout << std::endl;
 		}
 		std::cout << std::endl;
+
+		testDataIndex = (testDataIndex + 1) % testImages.header.sizes[0];
+
+		Test::run(network);
 	}
 
 private:

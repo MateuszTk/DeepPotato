@@ -12,6 +12,7 @@ find_package( OpenCV REQUIRED )
 
 include_directories(
 	"visualization"
+	"tests"
 	"external/stb"
 	"external/SDL/include"
 	${OpenCV_INCLUDE_DIRS}
