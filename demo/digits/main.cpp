@@ -13,12 +13,14 @@
 // enable testing
 #define TEST
 // enable training
-#define TRAIN
+//#define TRAIN
 
 // When defined, the program runs a tests and show the results automatically,
 //		'*' is the correct answer, '^' is the network's answer
 // When undefined, the program allows the user to draw a digits to test the network while it's training
-#define AUTO_TEST
+//#define AUTO_TEST
+
+#define WEBCAM
 
 // save location (press key 'S')
 #define SAVE_PATH "network.dpn"
@@ -47,45 +49,14 @@
 #include "engine.h"
 #include "Canvas.hpp"
 
-void displayInputImage(engine::Display& display, const TrainingData& image, int width, int height, float previewSizeMultiplier) {
-	const float previewWidth = width * previewSizeMultiplier;
-	const float previewHeight = height * previewSizeMultiplier;
-	for (int y = 0; y < previewHeight; y++) {
-		for (int x = 0; x < previewWidth; x++) {
-			unsigned char grayScaleColor = image.inputs((int)(y / previewSizeMultiplier) * width + (int)(x / previewSizeMultiplier)) * 255.0f;
-			hlp::color color = { grayScaleColor, grayScaleColor, grayScaleColor };
-			display.drawPixel(x, y, color);
-		}
-	}
-}
-
-std::pair<hlp::ivec2, hlp::ivec2> boundingBox(const unsigned char* image, int width, int height) {
-	hlp::ivec2 minBB = { width, height };
-	hlp::ivec2 maxBB = { 0, 0 };
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			if (image[y * width + x] > 0) {
-				if (x < minBB.x) {
-					minBB.x = x;
-				}
-				if (y < minBB.y) {
-					minBB.y = y;
-				}
-				if (x > maxBB.x) {
-					maxBB.x = x;
-				}
-				if (y > maxBB.y) {
-					maxBB.y = y;
-				}
-			}
-		}
-	}
-	return std::make_pair(minBB, maxBB);
-}
-
-void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, int testDataIndex);
+#include "Webcam.hpp"
+#include "Helper.hpp"
+#include "Test.hpp"
+#include "AutoTest.hpp"
 
 int main(int argc, char** argv) {
+	Webcam webcam(0);
+
 	IDX::IDX_Data trainImages = IDX::import("dataset/train-images.idx3-ubyte");
 	IDX::printData(trainImages);
 	IDX::IDX_Data trainLabels = IDX::import("dataset/train-labels.idx1-ubyte");
@@ -208,7 +179,45 @@ int main(int argc, char** argv) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 #endif // !TRAIN
 #else // !AUTO_TEST
+#ifdef WEBCAM
+				
+				Mat frame = webcam.getFrame();
+				if (frame.empty()) {
+					std::cout << "Failed to get frame from webcam\n";
+					break;
+				}
 
+				std::vector<std::pair<Rect, Mat>> digits = webcam.findDigits(frame);
+				std::vector<int> labels;
+
+				for (std::pair<Rect, Mat>& digit : digits) {
+					for (int y = 0; y < height; y++) {
+						for (int x = 0; x < width; x++) {
+							testData.inputs(y * width + x) = digit.second.at<unsigned char>(y, x) / 255.0f;
+						}
+					}
+
+					// feed input to network
+					network.setInputs(testData, 0);
+					network.propagateForward(0);
+
+					// find output with highest value
+					int maxIndex = 0;
+					float maxOutput = network.getOutputLayer()->getOutputs()(0, 0);
+					for (int i = 1; i < 10; i++) {
+						float output = network.getOutputLayer()->getOutputs()(i, 0);
+						if (output > maxOutput) {
+							maxOutput = output;
+							maxIndex = i;
+						}
+					}
+
+					labels.push_back(maxIndex);
+					std::cout << maxIndex << " ";
+				}
+				displayInputImage(display, testData, width, height, previewSizeMultiplier);
+				std::cout << '\n';
+#else // !WEBCAM
 				//displayInputImage(display, trData, width, height, previewSizeMultiplier);
 
 				// allow user to draw a digit on the canvas
@@ -248,6 +257,7 @@ int main(int argc, char** argv) {
 					std::cout << std::endl;
 				}
 				std::cout << std::endl;
+#endif // WEBCAM
 #endif // AUTO_TEST
 #else // !TEST
 				std::cout << "Iteration: " << iteration << " ,";
@@ -271,7 +281,6 @@ int main(int argc, char** argv) {
 				if (keystates[SDL_SCANCODE_L]) {
 					network.load(LOAD_PATH);
 				}
-
 				// display canvas
 				display.printFrame();
 
@@ -282,54 +291,4 @@ int main(int argc, char** argv) {
 		}
 	}
 	return 0;
-}
-
-void autoTest(int iteration, const IDX::IDX_Data& testImages, const IDX::IDX_Data& testLabels, engine::Display& display, Network& network, int width, int height, int imageSize, float previewSizeMultiplier, int testDataIndex) {
-	static TrainingData trData(28 * 28, 10);
-
-	// Test network
-	const unsigned char* timage = testImages.data + testDataIndex * imageSize;
-	const unsigned char tlabel = testLabels.data[testDataIndex];
-
-	for (int i = 0; i < 28 * 28; i++) {
-		trData.inputs(i) = (float)timage[i] / 255.0f;
-	}
-
-	for (int i = 0; i < 10; i++) {
-		trData.outputs(i) = (i == tlabel) ? 1.0f : 0.0f;
-	}
-
-	const unsigned int testSlot = 0;
-	network.setInputs(trData, testSlot);
-	network.propagateForward(testSlot);
-
-	displayInputImage(display, trData, width, height, previewSizeMultiplier);
-
-	float error = network.getError(trData, testSlot);
-
-	int maxIndex = 0;
-	float maxOutput = network.getOutputLayer()->getOutputs()(0, testSlot);
-	for (int i = 1; i < 10; i++) {
-		float output = network.getOutputLayer()->getOutputs()(i, testSlot);
-		if (output > maxOutput) {
-			maxOutput = output;
-			maxIndex = i;
-		}
-	}
-
-	std::cout << "Iteration: " << iteration << ", TestId: " << testDataIndex << ", Error: " << std::fixed << std::setprecision(8) << error << std::endl;
-	for (int i = 0; i < 10; i++) {
-		std::cout << i << " " << std::fixed << std::setprecision(2) << network.getOutputLayer()->getOutputs()(i, testSlot) << " ";
-		if (i == tlabel) {
-			std::cout << " *";
-		}
-		else {
-			std::cout << "  ";
-		}
-		if (i == maxIndex) {
-			std::cout << " ^";
-		}
-		std::cout << std::endl;
-	}
-	std::cout << std::endl;
 }

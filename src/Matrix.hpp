@@ -97,6 +97,30 @@ public:
 		}
 	}
 
+	const Matrix& add(const Matrix& other) {
+		if (this->size != other.size) {
+			throw std::invalid_argument("Matrix sizes do not match");
+		}
+		for (unsigned int i = 0; i < this->size; i++) {
+			data[i] += other.data[i];
+		}
+		return *this;
+	}
+
+	const Matrix& subtract(const Matrix& other) {
+		if (this->size != other.size) {
+			throw std::invalid_argument("Matrix sizes do not match");
+		}
+		for (unsigned int i = 0; i < this->size; i++) {
+			data[i] -= other.data[i];
+		}
+		return *this;
+	}
+	
+	const Matrix& operator+=(const Matrix& other) {
+		return add(other);
+	}
+
 	~Matrix() {
 		if (!isSubMatrix) {
 			delete[] data;
