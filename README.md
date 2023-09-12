@@ -31,7 +31,7 @@ Three types of tests are available:
 * Test on MNIST dataset - slowly loops through test images by displaying single digit at a time and its prediction. (```#define AUTO_TEST```)	
 * Manual test - allows to draw digit on the screen and see the prediction. (both ```#define AUTO_TEST``` and ```#define WEBCAM``` **NOT** defined)
 ![Canvas digit recognition](readme/CanvasDigitRecognition.png)
-* Web cam test - use camera to find and recognize digits (```#define AUTO_TEST``` **NOT** defined and ```#define WEBCAM``` defined, requires OpenCV installed and ```-DUSE_OPENCV=ON``` option set)				
+* Web cam test - use camera to find and recognize digits (```#define AUTO_TEST``` **NOT** defined and ```#define WEBCAM``` defined, requires OpenCV installed and ```-DUSE_OPENCV=ON``` CMake option set)				
 ![Digit recognition](readme/WebCamDigitRecognition.png)
 
 Tests can be selected by adding or removing ```#define TEST``` and ```#define WEBCAM``` in ```demo/digits/main.cpp``` in the configuration section at the top of the file.
