@@ -65,15 +65,14 @@
 #include "engine.h"
 #include "Canvas.hpp"
 
-#ifdef WEBCAM
-#include "Webcam.hpp"
-#endif
-
 #include "Helper.hpp"
 
 #include "Test.hpp"
 #include "AutoTest.hpp"
+#ifdef WEBCAM
+#include "Webcam.hpp"
 #include "WebCamTest.hpp"
+#endif
 #include "CanvasTest.hpp"
 
 int main(int argc, char** argv) {

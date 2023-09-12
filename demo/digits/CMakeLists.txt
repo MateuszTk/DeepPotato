@@ -15,8 +15,9 @@ if(USE_OPENCV)
 endif()
 
 include_directories(
+	"."
 	"visualization"
-	"tests"
+	"Tests"
 	"external/stb"
 	"external/SDL/include"
 	${OpenCV_INCLUDE_DIRS}

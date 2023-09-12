@@ -1,5 +1,5 @@
 # DeepPotato
-Simple neural network
+Artificial neural network
 
 ## Build
 ```
@@ -17,24 +17,24 @@ nmake
 ```
 ## Demo description
 
-#### XOR
+### XOR
 XOR demo is a simple neural network that learns XOR function.
 
-#### Image compression
+### Image compression
 Image compression demo is a simple neural network that reproduces input image.   
 
 ![Image compression](readme/image_replication.png)
 
-#### Digit recognition
+### Digit recognition
 Artificial neural network that recognizes handwritten digits.  
 Three types of tests are available:
 * Test on MNIST dataset - slowly loops through test images by displaying single digit at a time and its prediction. (```#define AUTO_TEST```)	
-* Manual test - allows to draw digit on the screen and see the prediction. (both ```#define AUTO_TEST``` and ```#define WEBCAM``` **NOT** defined)
+* Manual test - allows to draw digit on the screen and see the prediction. (both ```#define AUTO_TEST``` and ```#define WEBCAM``` **NOT** defined)    
 ![Canvas digit recognition](readme/CanvasDigitRecognition.png)
 * Web cam test - use camera to find and recognize digits (```#define AUTO_TEST``` **NOT** defined and ```#define WEBCAM``` defined, requires OpenCV installed and ```-DUSE_OPENCV=ON``` CMake option set)				
 ![Digit recognition](readme/WebCamDigitRecognition.png)
 
-Tests can be selected by adding or removing ```#define TEST``` and ```#define WEBCAM``` in ```demo/digits/main.cpp``` in the configuration section at the top of the file.
+Tests can be selected by adding or removing ```#define TEST``` and ```#define WEBCAM``` in ```demo/digits/main.cpp``` in the configuration section at the top of the file.   
 Pretrained model is available in ```demo/digits/models``` directory.
 ### Note
 Additional dependencies are required for image compression and digit recognition demos.
