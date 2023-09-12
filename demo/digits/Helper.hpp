@@ -35,3 +35,18 @@ std::pair<hlp::ivec2, hlp::ivec2> boundingBox(const unsigned char* image, int wi
 	}
 	return std::make_pair(minBB, maxBB);
 }
+
+// calculate random offset for digit image
+hlp::ivec2 randomOffset(int width, int height, std::pair<hlp::ivec2, hlp::ivec2> bb) {
+	hlp::ivec2 randomOffsetV;
+	randomOffsetV.x = ((rand() % width) - width / 2 + 1) * 0.5f;
+	randomOffsetV.y = ((rand() % height) - height / 2 + 1) * 0.5f;
+
+	randomOffsetV.x = ((randomOffsetV.x + bb.second.x < width) ? randomOffsetV.x : (width - bb.second.x - 1));
+	randomOffsetV.y = ((randomOffsetV.y + bb.second.y < height) ? randomOffsetV.y : (height - bb.second.y - 1));
+
+	randomOffsetV.x = ((randomOffsetV.x + bb.first.x >= 0) ? randomOffsetV.x : (-bb.first.x));
+	randomOffsetV.y = ((randomOffsetV.y + bb.first.y >= 0) ? randomOffsetV.y : (-bb.first.y));
+
+	return randomOffsetV;
+}

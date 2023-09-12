@@ -1,32 +1,47 @@
 
 // ------------------- CONFIG -------------------
-// AUTO_TEST defined: size of the preview window (set to -1 to disable)
-// AUTO_TEST undefined: size of the paint canvas
-#define PREVIEW_WIDTH 200
+	// --------TESTING--------
+		// enable testing
+			#define TEST
 
-// size of the batch
-#define BATCH_SIZE 32
+		// When defined, the program runs a tests and show the results automatically,
+		//		'*' is the correct answer, '^' is the network's answer
+		// When undefined, the program allows the user to draw a digits to test the network while it's training
+			#define AUTO_TEST
 
-// number of threads used for training, set to 0 or not define to disable multithreading
-#define THREAD_POOL_SIZE 4
+		// When defined, the program uses the webcam as input
+			//#define WEBCAM
 
-// enable testing
-#define TEST
-// enable training
-#define TRAIN
+	// --------TRAINING--------
+		// enable training
+			#define TRAIN
 
-// When defined, the program runs a tests and show the results automatically,
-//		'*' is the correct answer, '^' is the network's answer
-// When undefined, the program allows the user to draw a digits to test the network while it's training
-#define AUTO_TEST
+		// size of the batch
+			#define BATCH_SIZE 32
 
-// When defined, the program uses the webcam as input
-// #define WEBCAM
+		// number of threads used for training, set to 0 or not define to disable multithreading
+			#define THREAD_POOL_SIZE 4
 
-// save location (press key 'S')
-#define SAVE_PATH "network.dpn"
-// load location (press key 'L')
-#define LOAD_PATH "network.dpn"
+	// --------OTHER--------
+		// AUTO_TEST defined: size of the preview window (set to -1 to disable)
+		// AUTO_TEST undefined: size of the paint canvas
+			#define PREVIEW_WIDTH 200
+
+		// save location (press key 'S')
+			#define SAVE_PATH "network.dpn"
+		// load location (press key 'L')
+			#define LOAD_PATH "network.dpn"
+
+		// delay between each test iteration (in ms)
+		#ifdef AUTO_TEST
+			#define TEST_DELAY 1000
+		#else
+			#ifdef WEBCAM
+				#define TEST_DELAY 50
+			#else
+				#define TEST_DELAY 50
+			#endif
+		#endif
 
 // ----------------------------------------------
 
@@ -60,18 +75,6 @@
 #include "AutoTest.hpp"
 #include "WebCamTest.hpp"
 #include "CanvasTest.hpp"
-
-#ifdef AUTO_TEST
-	#define TEST_DELAY 1000
-#else
-	#ifdef WEBCAM
-		#define TEST_DELAY 50
-	#else
-		#define TEST_DELAY 50
-	#endif
-#endif
-
-
 
 int main(int argc, char** argv) {
 
@@ -115,9 +118,9 @@ int main(int argc, char** argv) {
 	}
 
 	auto start = std::chrono::high_resolution_clock::now();
-
 	int lastIteration = 0;
 	int iteration = -1;
+
 	while (true) {
 		iteration++;
 
@@ -128,22 +131,15 @@ int main(int argc, char** argv) {
 
 		// apply random offset to digit image, so that the network can learn to recognize digits which are not centered
 		std::pair<hlp::ivec2, hlp::ivec2> bb = boundingBoxes[trDataIndex];
-		int randomOffsetX = ((rand() % width) - width / 2 + 1) * 0.5f;
-		int randomOffsetY = ((rand() % height) - height / 2 + 1) * 0.5f;
-
-		randomOffsetX = ((randomOffsetX + bb.second.x < width) ? randomOffsetX : (width - bb.second.x - 1));
-		randomOffsetY = ((randomOffsetY + bb.second.y < height) ? randomOffsetY : (height - bb.second.y - 1));
-
-		randomOffsetX = ((randomOffsetX + bb.first.x >= 0) ? randomOffsetX : (-bb.first.x));
-		randomOffsetY = ((randomOffsetY + bb.first.y >= 0) ? randomOffsetY : (-bb.first.y));
+		hlp::ivec2 randomOffsetV = randomOffset(width, height, bb);
 
 		int batchSample = iteration % BATCH_SIZE;
 
 		// set inputs
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
-				int randomX = x - randomOffsetX;
-				int randomY = y - randomOffsetY;
+				int randomX = x - randomOffsetV.x;
+				int randomY = y - randomOffsetV.y;
 				if (randomX < 0 || randomX >= width || randomY < 0 || randomY >= height) {
 					trData[batchSample].inputs(y * width + x) = 0.0f;
 					continue;

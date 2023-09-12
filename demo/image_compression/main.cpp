@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
 	const unsigned int imageSize = width * height;
 	const float previewSizeMultiplier = (PREVIEW_WIDTH > 0) ? (float)PREVIEW_WIDTH / width : 1.0f;
 
-	engine::Display display(width * previewSizeMultiplier, height * previewSizeMultiplier, "Neural Network", false);
+	engine::Display display(width * previewSizeMultiplier, height * previewSizeMultiplier, "Learned image", false);
 	SDL_Event event;
 
 	srand(time(NULL));

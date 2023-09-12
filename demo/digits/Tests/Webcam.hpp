@@ -10,7 +10,9 @@ using namespace cv;
 
 class Webcam {
 public:
-	Webcam(int id) : id(id), cap(id) {
+	Webcam(int id) : 
+		id(id), 
+		cap(id) {
 		if (!cap.isOpened()) {
 			std::cout << "Error opening video stream or file\n";
 		}
@@ -57,7 +59,7 @@ public:
 		std::vector<std::vector<Point>> contours_poly(contours.size());
 		std::vector<std::pair<Rect, Mat>> digits;
 
-		imshow("Frame", frame);
+		imshow("Processed", frame);
 
 		for (size_t i = 0; i < contours.size(); i++) {
 			approxPolyDP(contours[i], contours_poly[i], 3, true);
@@ -89,7 +91,7 @@ public:
 		for (auto& bound : digits) {
 			rectangle(original, bound.first.tl(), bound.first.br(), Scalar(0, 255, 0), 2);
 		}
-		imshow("Cam", original);
+		imshow("Camera", original);
 
 		Mat previews = Mat::zeros(Size(28 * 10, 28), CV_8UC1);
 		for (size_t i = 0; i < digits.size(); i++) {
@@ -100,7 +102,7 @@ public:
 			digits[i].second.copyTo(previews(Rect(i * 28, 0, 28, 28)));
 		}
 
-		imshow("Previews", previews);
+		imshow("Found digits", previews);
 
 		return digits;
 	}

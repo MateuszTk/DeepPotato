@@ -80,6 +80,12 @@ public:
 		return dimensions[dim];
 	}
 
+	void setAll(T value) {
+		for (unsigned int i = 0; i < size; ++i) {
+			data[i] = value;
+		}
+	}
+
 	template <typename... Args>
 	T* dataAt(Args... args) const {
 		return data + getIndex(args...);
@@ -119,6 +125,17 @@ public:
 	
 	const Matrix& operator+=(const Matrix& other) {
 		return add(other);
+	}
+
+	const Matrix& operator-=(const Matrix& other) {
+		return subtract(other);
+	}
+
+	const Matrix& operator*=(T scalar) {
+		for (unsigned int i = 0; i < this->size; i++) {
+			data[i] *= scalar;
+		}
+		return *this;
 	}
 
 	~Matrix() {

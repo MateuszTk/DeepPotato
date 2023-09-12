@@ -6,9 +6,13 @@ file(GLOB_RECURSE SOURCES PARENT_SCOPE
 
 set(SOURCES ${SOURCES} PARENT_SCOPE)
 
+option(USE_OPENCV "Use OpenCV" OFF)
+
 add_subdirectory(external/SDL EXCLUDE_FROM_ALL)
 
-find_package( OpenCV REQUIRED )
+if(USE_OPENCV)
+	find_package( OpenCV REQUIRED )
+endif()
 
 include_directories(
 	"visualization"
@@ -21,7 +25,9 @@ include_directories(
 # Add source to this project's executable.
 add_executable (${PROJECT_NAME}  ${SOURCES})
 
-target_link_libraries( ${PROJECT_NAME} ${OpenCV_LIBS})
+if(USE_OPENCV)
+	target_link_libraries( ${PROJECT_NAME} ${OpenCV_LIBS})
+endif()
 target_link_libraries(${PROJECT_NAME} SDL2::SDL2)
 
 # Copy resources to build directory
