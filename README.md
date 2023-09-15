@@ -39,7 +39,7 @@ Pretrained model is available in ```demo/digits/models``` directory.
 ### Note
 Additional dependencies are required for image compression and digit recognition demos.
 ```
-cd demo/image_compression/external
+cd demo/external
 git clone https://github.com/nothings/stb
 git clone --depth 1 --branch SDL2 https://github.com/libsdl-org/SDL.git
 ```

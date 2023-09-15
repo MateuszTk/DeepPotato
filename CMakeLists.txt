@@ -9,7 +9,9 @@ endif()
 
 project ("DeepPotato")
 
-include_directories("src")
+include_directories(
+	"src"
+)
 
 option(BUILD_XOR "Build XOR demo" OFF)
 option(BUILD_IMAGE_COMPRESSION "Build Image Compression demo" OFF)
@@ -20,10 +22,12 @@ if(BUILD_XOR)
 endif()
 
 if(BUILD_IMAGE_COMPRESSION)
+	add_subdirectory(demo/external/SDL EXCLUDE_FROM_ALL)
 	add_subdirectory(demo/image_compression)
 endif()
 
 if(BUILD_DIGITS)
+	add_subdirectory(demo/external/SDL EXCLUDE_FROM_ALL)
 	add_subdirectory(demo/digits)
 endif()
 

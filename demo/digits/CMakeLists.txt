@@ -1,14 +1,12 @@
 
 file(GLOB_RECURSE SOURCES PARENT_SCOPE
 	main.cpp
-	visualization/*.cpp
+	../utils/*.cpp
 )
 
 set(SOURCES ${SOURCES} PARENT_SCOPE)
 
 option(USE_OPENCV "Use OpenCV" OFF)
-
-add_subdirectory(external/SDL EXCLUDE_FROM_ALL)
 
 if(USE_OPENCV)
 	find_package( OpenCV REQUIRED )
@@ -18,8 +16,9 @@ include_directories(
 	"."
 	"visualization"
 	"Tests"
-	"external/stb"
-	"external/SDL/include"
+	"../external/stb"
+	"../external/SDL/include"
+	"../utils"
 	${OpenCV_INCLUDE_DIRS}
 )
 

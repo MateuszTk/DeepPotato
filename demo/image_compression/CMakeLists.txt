@@ -1,17 +1,15 @@
 
 file(GLOB_RECURSE SOURCES PARENT_SCOPE
 	main.cpp
-	visualization/*.cpp
+	../utils/*.cpp
 )
 
 set(SOURCES ${SOURCES} PARENT_SCOPE)
 
-add_subdirectory(external/SDL EXCLUDE_FROM_ALL)
-
 include_directories(
-	"visualization"
-	"external/stb"
-	"external/SDL/include"
+	"../external/stb"
+	"../external/SDL/include"
+	"../utils"
 )
 
 # Add source to this project's executable.
