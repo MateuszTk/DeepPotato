@@ -1,4 +1,6 @@
 #include "engine.h"
+#include <cmath>
+#include <iostream>
 
 //--------------IO--------------//
 
@@ -91,7 +93,16 @@ void engine::Display::drawString(const char* text, hlp::vec2<int> position, floa
 void engine::Display::drawPixel(int x, int y, hlp::color color) {
 	Uint8* pixels = (Uint8*)this->screen->pixels;
 	const int bpp = this->screen->format->BytesPerPixel;
-	const int id = (x + y * this->screenWidth) * bpp;
+	const int id = (x * bpp + y * this->screen->pitch);
+	pixels[id + 2] = color.r;
+	pixels[id + 1] = color.g;
+	pixels[id] = color.b;
+}
+
+void engine::Display::drawPixel(int x, int y, hlp::color color, SDL_Surface* surface) {
+	Uint8* pixels = (Uint8*)surface->pixels;
+	const int bpp = surface->format->BytesPerPixel;
+	const int id = (x * bpp + y * surface->pitch);
 	pixels[id + 2] = color.r;
 	pixels[id + 1] = color.g;
 	pixels[id] = color.b;
@@ -100,10 +111,20 @@ void engine::Display::drawPixel(int x, int y, hlp::color color) {
 hlp::color engine::Display::getPixel(int x, int y){
 	Uint8* pixels = (Uint8*)this->screen->pixels;
 	const int bpp = this->screen->format->BytesPerPixel;
-	const int id = (x + y * this->screenWidth) * bpp;
+	const int id = (x * bpp + y * this->screen->pitch);
 	return {pixels[id + 2],
 		pixels[id + 1],
-		pixels[id],
+		pixels[id]
+	};
+}
+
+hlp::color engine::Display::getPixel(int x, int y, SDL_Surface* surface) {
+	Uint8* pixels = (Uint8*)surface->pixels;
+	const int bpp = surface->format->BytesPerPixel;
+	const int id = (x * bpp + y * surface->pitch);
+	return { pixels[id + 2],
+		pixels[id + 1],
+		pixels[id]
 	};
 }
 
@@ -114,7 +135,19 @@ void engine::Display::drawHLine(hlp::vec2<int> start, int length, hlp::color col
 	}
 }
 
-void engine::Display::drawSurface(SDL_Surface* surface, hlp::vec2<int> pos) {
+void engine::Display::drawSurface(SDL_Surface* surface, hlp::vec2<int> pos, float rotation) {
+	if (std::abs(rotation) > 0.001f) {
+		SDL_Surface* rotated = rotateSurface(surface, rotation);
+		SDL_Rect dest;
+		dest.x = pos.x - rotated->w / 2;
+		dest.y = pos.y - rotated->h / 2;
+		dest.w = rotated->w;
+		dest.h = rotated->h;
+		SDL_BlitSurface(rotated, NULL, this->screen, &dest);
+		SDL_FreeSurface(rotated);
+		return;
+	}
+
 	SDL_Rect dest;
 	dest.x = pos.x - surface->w / 2;
 	dest.y = pos.y - surface->h / 2;
@@ -139,6 +172,28 @@ hlp::vec2<int> engine::Display::toScreenCenter(hlp::vec2<int>& position) {
 	return (position + hlp::vec2<int>(screenWidth / 2, screenHeight / 2));
 }
 
+SDL_Surface* engine::Display::rotateSurface(SDL_Surface* surface, float angle) {
+	int newWidth = (int)std::ceil(surface->w * std::abs(cos(angle)) + surface->h * std::abs(sin(angle)));
+	int newHeight = (int)std::ceil(surface->w * std::abs(sin(angle)) + surface->h * std::abs(cos(angle)));
+	SDL_Surface* rotated = SDL_CreateRGBSurface(0, newWidth, newHeight, 24, 0x00ff0000, 0x0000ff00, 0x000000ff, 0);
+	SDL_SetColorKey(rotated, true, 0x000000);
+
+	for (int y = 0; y < newHeight; y++) {
+		for (int x = 0; x < newWidth; x++) {
+			int oldX = (int)((x - newWidth / 2) * cos(angle) + (y - newHeight / 2) * sin(angle) + surface->w / 2);
+			int oldY = (int)((y - newHeight / 2) * cos(angle) - (x - newWidth / 2) * sin(angle) + surface->h / 2);
+			if (oldX >= 0 && oldX < surface->w && oldY >= 0 && oldY < surface->h) {
+				hlp::color color = getPixel(oldX, oldY, surface);
+				drawPixel(x, y, color, rotated);
+			}
+			else {
+				drawPixel(x, y, { 0, 0, 0 }, rotated);
+			}
+		}
+	}
+
+	return rotated;
+}
 
 bool engine::Display::initializeFont() {
 	//open font image
@@ -235,6 +290,12 @@ bool engine::Actor::collides(hlp::rect<double> rect) {
 	return overlaps(rect) || overlapsRect(rect);
 }
 
+void engine::Actor::move(hlp::vec2<double> delta) {
+	float sinRot = sin(rotation);
+	float cosRot = cos(rotation);
+	position += hlp::vec2<double>::rotatePoint(delta, { 0.0, 0.0 }, rotation);
+}
+
 //--------------Scene--------------//
 
 void engine::Scene::addActor(Actor* actor) {
@@ -246,7 +307,7 @@ void engine::Scene::drawActors(Display* display) {
 		if (actors[i]->surface && actors[i]->active) {
 			hlp::vec2<int> posOnScreen = actors[i]->position - this->cameraPosition;
 			posOnScreen.y *= -1;
-			display->drawSurface(actors[i]->surface, display->toScreenCenter(posOnScreen));
+			display->drawSurface(actors[i]->surface, display->toScreenCenter(posOnScreen), actors[i]->rotation);
 		}
 	}
 }

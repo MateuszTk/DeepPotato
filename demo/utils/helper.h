@@ -185,6 +185,16 @@ namespace hlp {
 		bool operator==(const vec2& second) const {
 			return (this->x == second.x && this->y == second.y);
 		}
+
+		static vec2 rotatePoint(vec2 point, vec2 center, T angle) {
+			point -= center;
+			T sinRot = sin(angle);
+			T cosRot = cos(angle);
+			return {
+				point.y * sinRot - point.x * cosRot + center.x,
+				point.x * sinRot + point.y * cosRot + center.y
+			};
+		}
 	};
 
 	using ivec2 = vec2<int>;

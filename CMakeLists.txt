@@ -16,6 +16,7 @@ include_directories(
 option(BUILD_XOR "Build XOR demo" OFF)
 option(BUILD_IMAGE_COMPRESSION "Build Image Compression demo" OFF)
 option(BUILD_DIGITS "Build Digits demo" OFF)
+option(BUILD_FOLLOWER "Build Line Follower demo" OFF)
 
 if(BUILD_XOR)
 	add_subdirectory(demo/xor)
@@ -29,6 +30,11 @@ endif()
 if(BUILD_DIGITS)
 	add_subdirectory(demo/external/SDL EXCLUDE_FROM_ALL)
 	add_subdirectory(demo/digits)
+endif()
+
+if(BUILD_FOLLOWER)
+	add_subdirectory(demo/external/SDL EXCLUDE_FROM_ALL)
+	add_subdirectory(demo/follower)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

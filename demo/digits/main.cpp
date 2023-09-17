@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
 					network.load(LOAD_PATH);
 				}
 				if (quit) {
-					return 0;
+					break;
 				}
 			}
 		}

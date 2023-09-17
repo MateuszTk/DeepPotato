@@ -15,9 +15,11 @@ namespace engine {
 		double printFrame(bool clear = true);
 		void drawString(const char* text, hlp::vec2<int> position, float fontSize = 1.0f, bool background = false, bool centered = false);
 		void drawPixel(int x, int y, hlp::color color);
+		void drawPixel(int x, int y, hlp::color color, SDL_Surface* surface);
 		void drawHLine(hlp::vec2<int> start, int length, hlp::color color);
-		void drawSurface(SDL_Surface* surface, hlp::vec2<int> pos);
+		void drawSurface(SDL_Surface* surface, hlp::vec2<int> pos, float rotation = 0.0f);
 		hlp::color getPixel(int x, int y);
+		hlp::color getPixel(int x, int y, SDL_Surface* surface);
 		int getScreenWidth();
 		int getScreenHeight();
 		int getFPS();
@@ -39,13 +41,16 @@ namespace engine {
 		SDL_Window* window = nullptr;
 		SDL_Renderer* renderer = nullptr;
 
+		SDL_Surface* rotateSurface(SDL_Surface* surface, float angle);
+
 		bool initializeFont();
-		bool initializeView(const char* windowTitle);
+		bool initializeView(const char* windowTitle);	
 	};
 
 	struct Actor {
 		SDL_Surface* surface;
 		hlp::vec2<double> position;
+		float rotation;
 		const char* name;
 		bool active = true; 
 		hlp::vec2<double> momentum;
@@ -68,6 +73,8 @@ namespace engine {
 		bool overlapsRect(hlp::rect<double> rect);
 		//check using both overlaps and overlapsRect methods
 		bool collides(hlp::rect<double> rect);
+		//move actor by delta in local coordinates
+		void move(hlp::vec2<double> delta);
 	};
 
 	class Scene {

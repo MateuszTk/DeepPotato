@@ -17,13 +17,13 @@ public:
 			fMousePos.y /= scale;
 			if (fMousePos.x >= 0 && fMousePos.x < this->width && fMousePos.y >= 0 && fMousePos.y < this->height) {
 				if (antialiasing) {
-					for (int i = -1; i < 2; i++) {
-						for (int j = -1; j < 2; j++) {
+					for (int i = -brushSize; i < brushSize + 1; i++) {
+						for (int j = -brushSize; j < brushSize + 1; j++) {
 							hlp::ivec2 pos = fMousePos + hlp::ivec2(i, j);
 							if (pos.x >= 0 && pos.x < this->width && pos.y >= 0 && pos.y < this->height) {
 								hlp::fvec2 delta = hlp::fvec2(pos) - fMousePos;
 								float dist = std::sqrt(delta.x * delta.x + delta.y * delta.y);
-								float intensity = std::clamp(1.2f - dist, 0.0f, 1.0f);
+								float intensity = std::clamp(1.2f * brushSize - dist, 0.0f, 1.0f);
 								hlp::color pixColor = {
 									(unsigned char)(brushColor.r * intensity),
 									(unsigned char)(brushColor.g * intensity),
@@ -53,6 +53,14 @@ public:
 
 	const hlp::color& getBrushColor() const {
 		return this->brushColor;
+	}
+
+	void setBrushSize(int size) {
+		this->brushSize = size;
+	}
+
+	int getBrushSize() const {
+		return this->brushSize;
 	}
 
 	void drawCanvas(engine::Display& display) {
@@ -124,6 +132,7 @@ private:
 	unsigned int height;
 	unsigned char* pixels;
 	hlp::color brushColor = {255, 255, 255};
+	int brushSize = 1;
 	hlp::ivec2 position = {0, 0};
 	float scale = 1.0f;
 	bool antialiasing = true;
