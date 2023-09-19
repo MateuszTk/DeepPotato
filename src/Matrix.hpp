@@ -17,13 +17,12 @@ public:
 			this->dimensions[i] = dimensions[i];
 			this->size *= dimensions[i];
 		}
-		if (size > 0) {
-			this->data = new T[size];
+		if (this->size > 0) {
+			this->data = new T[this->size];
 		}
 		else {
 			this->data = nullptr;
 		}
-		this->size = size;
 	}
 
 	Matrix(const Matrix<T, nDim + 1>& master, unsigned int index) : isSubMatrix(true) {
@@ -42,6 +41,12 @@ public:
 	}
 
 	Matrix(const Matrix& other) {
+		this->size = 1;
+		for (unsigned int i = 0; i < nDim; ++i) {
+			this->dimensions[i] = other.dimensions[i];
+			this->size *= this->dimensions[i];
+		}
+		this->data = new T[this->size];
 		*this = other;
 	}
 

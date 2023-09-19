@@ -4,7 +4,7 @@
 
 class LineFollower {
 public:
-	LineFollower() : display(800, 800, "Line Follower", false), canvas(display.getScreenWidth(), display.getScreenHeight()) {
+	LineFollower() : display(800, 800, "Line Follower", false), canvas(display.getScreenWidth(), display.getScreenHeight()), sensorCount(7) {
 		canvas.setBrushSize(4);
 		canvas.clear();
 
@@ -14,12 +14,29 @@ public:
 		scene.addActor(&actor);
 	}
 
-	Matrix1D<float> sampleLine() {
-		Matrix1D<float> line({ 6 });
-		for (int i = 0; i < 6; i++) {
-			line(i) = samplePoint({ 25.0f - i * 10.0f, -50.0f });
+	Matrix1D<float> sampleLine(bool draw) {
+		Matrix1D<float> line({ (unsigned int)sensorCount });
+		for (int i = 0; i < sensorCount; i++) {
+			line(i) = samplePoint({ 30.0f - i * 10.0f, -50.0f }, draw, 2);
 		}
 		return line;
+	}
+
+	float getReward() {
+		//highest reward is when the car is in the middle of the line
+		Matrix1D<float> line = sampleLine(false);
+		int indexSum = 0;
+		int indexCount = 0;
+		for (int i = 0; i < sensorCount; i++) {
+			if (line(i) > 0.0f) {
+				indexSum += i;
+				indexCount++;
+			}
+		}
+		float reward = 0.0f;
+		float index = indexSum / (float)indexCount;
+		if (indexCount != 0) reward = (3 - std::abs(index - 3) + 1) / 4.0;
+		return std::powf(std::clamp(reward, 0.0f, 1.0f), 2.0f);
 	}
 
 	void updateCanvas() {
@@ -35,7 +52,14 @@ public:
 	void reset() {
 		actor.position = { 0.0, 0.0 };
 		actor.rotation = 0.0;
+	}
+
+	void clear() {
 		canvas.clear();
+	}
+
+	int getSensorCount() {
+		return sensorCount;
 	}
 
 	void action(int action, double speed) {
@@ -60,8 +84,9 @@ private:
 	Canvas canvas;
 	engine::Scene scene;
 	engine::Actor actor;
+	const int sensorCount;
 
-	float samplePoint(hlp::fvec2 offset) {
+	float samplePoint(hlp::fvec2 offset, bool draw, int size) {
 		hlp::fvec2 origin = {
 				(float)(actor.position.x + display.getScreenWidth() / 2),
 				(float)(-actor.position.y + display.getScreenHeight() / 2)
@@ -70,16 +95,18 @@ private:
 		samplePos = hlp::fvec2::rotatePoint(samplePos, origin, -actor.rotation);
 
 		float value = 0.0f;
-		for (int y = -1; y < 2; y++) {
-			for (int x = -1; x < 2; x++) {
+		for (int y = -size; y < size + 1; y++) {
+			for (int x = -size; x < size + 1; x++) {
 				if (samplePos.x + x >= 0 && samplePos.x + x < display.getScreenWidth() &&
 					samplePos.y + y >= 0 && samplePos.y + y < display.getScreenHeight()) {
 					value += display.getPixel(samplePos.x + x, samplePos.y + y).r;
-					display.drawPixel(samplePos.x + x, samplePos.y + y, hlp::color(255, 0, 0));
+					if (draw) {
+						display.drawPixel(samplePos.x + x, samplePos.y + y, hlp::color(255, 0, 0));
+					}
 				}
 			}
 		}
 
-		return value / (9.0f * 255.0f);
+		return value / (hlp::pow2(1 + 2 * size) * 255.0f);
 	}
 };
