@@ -36,13 +36,18 @@ struct TrainingData {
 
 class Network {
 public:
-	Network(const std::initializer_list<int>& layersSizes) : learningRate(0.1f), threadPool(THREAD_POOL_SIZE), batchSize(std::max<int>(THREAD_POOL_SIZE, 1)) {
-		this->layerCount = layersSizes.size();
+	Network(const std::initializer_list<LayerType>& layersTypes) :
+		learningRate(0.1f), 
+		threadPool(THREAD_POOL_SIZE),
+		batchSize(std::max<int>(THREAD_POOL_SIZE, 1)) {
+
+		this->layerCount = layersTypes.size();
 		this->layers = new Layer*[layerCount];
 		int i = 0;
-		for (auto it = layersSizes.begin(); it < layersSizes.end(); it++) {
-			int nextLayerSize = (i + 1 >= layerCount) ? 0 : *(it + 1);
-			Layer* layer = new Layer(*it, nextLayerSize, batchSize);
+		for (auto layerT = layersTypes.begin(); layerT < layersTypes.end(); layerT++) {
+
+			int nextLayerSize = (i + 1 >= layerCount) ? 0 : (layerT + 1)->getNeuronCount();
+			Layer* layer = new Layer(*layerT, nextLayerSize, batchSize);
 			layers[i] = layer;
 			i++;
 		}
@@ -60,7 +65,7 @@ public:
 			Layer* previousLayer = layers[layer - 1];
 
 			multiplyAndAdd(previousLayer->getWeights(), *previousLayer->getOutputs()(batch), currentLayer->getBiases(), *currentLayer->getInputs()(batch));
-			currentLayer->getOutputs().applyFunction(currentLayer->getInputs(), &Network::sigmoid);
+			currentLayer->getOutputs().applyFunction(currentLayer->getInputs(), currentLayer->getActivationFunction());
 		}
 	}
 
@@ -80,7 +85,7 @@ public:
 						errorSum += nextLayer->getErrors()(iNextNeuron, batch) * currentLayer->getWeights()(iNeuron, iNextNeuron);
 					}
 				}
-				errorSum *= sigmoidDerivative(currentLayer->getInputs()(iNeuron, batch));
+				errorSum *= currentLayer->getActivationFunctionDerivative()(currentLayer->getInputs()(iNeuron, batch));
 				currentLayer->getErrors()(iNeuron, batch) = errorSum;
 
 				// sum errors for bias and weights
@@ -227,7 +232,8 @@ public:
 			int weightCount;
 			file.read((char*)&weightCount, sizeof(int));
 
-			layers[iLayer] = new Layer(neuronCount, weightCount, batchSize);
+			LayerType type(neuronCount, Activation::SIGMOID);
+			layers[iLayer] = new Layer(type, weightCount, batchSize);
 
 			std::cout << "Layer " << iLayer << ": " << neuronCount << " neurons, " << weightCount << " weights\n";
 
@@ -262,12 +268,4 @@ private:
 	int layerCount;
 	float learningRate;
 	unsigned int batchSize;
-
-	static float sigmoid(float x) {
-		return 1.0f / (1.0f + std::exp(-x));
-	}
-
-	static float sigmoidDerivative(float x) {
-		return sigmoid(x) * (1.0f - sigmoid(x));
-	}
 };

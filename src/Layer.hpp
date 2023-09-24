@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Matrix.hpp"
+#include "LayerType.hpp"
 
 float randomNormalizedFloat() {
 	float random = ((float)(rand() % RAND_MAX)) / (float)RAND_MAX;
@@ -10,12 +11,20 @@ float randomNormalizedFloat() {
 
 class Layer {
 public:
-	Layer(unsigned int neuronCount, unsigned int outputSize, unsigned int batches)
-		: neuronCount(neuronCount), outputSize(outputSize), weights({ neuronCount, outputSize }), biases({ neuronCount }), weightErrorsSums({ neuronCount, outputSize, batches }),
-		errorsSums({ neuronCount, batches }), outputs({ neuronCount, batches }), inputs({ neuronCount, batches }), errors({ neuronCount, batches }) {
+	Layer(LayerType layerType, unsigned int outputSize, unsigned int batches) :
+		layerType(layerType),
+		outputSize(outputSize),
+		weights({ layerType.getNeuronCount(), outputSize }),
+		biases({ layerType.getNeuronCount() }), 
+		weightErrorsSums({ layerType.getNeuronCount(), outputSize, batches }),
+		errorsSums({ layerType.getNeuronCount(), batches }),
+		outputs({ layerType.getNeuronCount(), batches }),
+		inputs({ layerType.getNeuronCount(), batches }),
+		errors({ layerType.getNeuronCount(), batches }) {
 
+		setActivationFunction(layerType.getActivationFunction());
 
-		for (int i = 0; i < neuronCount; i++) {
+		for (int i = 0; i < layerType.getNeuronCount(); i++) {
 			biases(i) = randomNormalizedFloat();
 			for (int j = 0; j < outputSize; j++) {
 				weights(i, j) = randomNormalizedFloat();
@@ -27,7 +36,7 @@ public:
 	}
 
 	unsigned int getNeuronCount() {
-		return neuronCount;
+		return layerType.getNeuronCount();
 	}
 
 	unsigned int getOutputSize() {
@@ -62,8 +71,20 @@ public:
 		return errors;
 	}
 
+	const std::function<float(float)>& getActivationFunction() {
+		return activationFunction;
+	}
+
+	const std::function<float(float)>& getActivationFunctionDerivative() {
+		return activationFunctionDerivative;
+	}
+
+	Activation getActivationFunctionType() {
+		return layerType.getActivationFunction();
+	}
+
 private:
-	unsigned int neuronCount;
+	LayerType layerType;
 	unsigned int outputSize;
 
 	Matrix2D<float> weights;
@@ -76,4 +97,61 @@ private:
 	Matrix2D<float> inputs;
 
 	Matrix2D<float> errors;
+
+
+	std::function<float(float)> activationFunction;
+	std::function<float(float)> activationFunctionDerivative;
+
+	static float sigmoid(float x) {
+		return 1.0f / (1.0f + std::exp(-x));
+	}
+
+	static float sigmoidDerivative(float x) {
+		return sigmoid(x) * (1.0f - sigmoid(x));
+	}
+
+	static float relu(float x) {
+		return std::max(0.0f, x);
+	}
+
+	static float reluDerivative(float x) {
+		return (x > 0.0f ? 1.0f : 0.0f);
+	}
+
+	static float leakyRelu(float x) {
+		return std::max(0.01f * x, x);
+	}
+
+	static float leakyReluDerivative(float x) {
+		return (x > 0.0f ? 1.0f : 0.01f);
+	}
+
+	static float linear(float x) {
+		return x;
+	}
+
+	static float linearDerivative(float x) {
+		return 1.0f;
+	}
+
+	void setActivationFunction(Activation activationFunction) {
+		switch (activationFunction) {
+			case Activation::SIGMOID:
+				this->activationFunction = sigmoid;
+				this->activationFunctionDerivative = sigmoidDerivative;
+				break;
+			case Activation::RELU:
+				this->activationFunction = relu;
+				this->activationFunctionDerivative = reluDerivative;
+				break;
+			case Activation::LEAKY_RELU:
+				this->activationFunction = leakyRelu;
+				this->activationFunctionDerivative = leakyReluDerivative;
+				break;
+			case Activation::LINEAR:
+				this->activationFunction = linear;
+				this->activationFunctionDerivative = linearDerivative;
+				break;
+		}
+	}
 };

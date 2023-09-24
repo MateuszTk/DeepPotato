@@ -41,7 +41,12 @@ int main(int argc, char** argv) {
 	LineFollower follower;
 
 	srand(time(NULL));
-	Network network({ 7, 5, 3 });
+	Network network({
+		InputLayer(7),
+		DenseLayer(6, Activation::RELU),
+		DenseLayer(6, Activation::RELU),
+		DenseLayer(3, Activation::SIGMOID)
+	});
 	network.setLearningRate(0.05f);
 
 	std::vector<TrainingData> trainingData;
@@ -129,6 +134,7 @@ int main(int argc, char** argv) {
 					if (batchIndex > 0) {
 						//std::cout << "reward: " << reward << std::endl;
 						trainingData[batchIndex - 1].outputs(action) = (0.1f * reward + 0.9f * trainingData[batchIndex].outputs(action));
+						//trainingData[batchIndex - 1].outputs(action) = (reward + 0.96f * trainingData[batchIndex].outputs(action));
 					}
 					batchIndex++;
 				}

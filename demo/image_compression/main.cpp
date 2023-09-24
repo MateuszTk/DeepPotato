@@ -18,6 +18,8 @@
 
 #define BATCH_SIZE 32
 
+//#define USE_RELU
+
 int main(int argc, char** argv) {
 	int width, height, channels;
 	unsigned char* imageData = stbi_load("images/input.png", &width, &height, &channels, 0);
@@ -34,8 +36,25 @@ int main(int argc, char** argv) {
 
 	srand(time(NULL));
 
-	Network network({ 2, 30, 20, 10, 3 });
-	network.setLearningRate(0.1f);
+#ifdef USE_RELU
+	Network network({ 
+		InputLayer(2), 
+		DenseLayer(30, Activation::RELU), 
+		DenseLayer(20, Activation::RELU),
+		DenseLayer(10, Activation::RELU),
+		DenseLayer(3, Activation::SIGMOID)
+	});
+	network.setLearningRate(0.05f);
+#else
+	Network network({
+		InputLayer(2),
+		DenseLayer(30, Activation::SIGMOID),
+		DenseLayer(20, Activation::SIGMOID),
+		DenseLayer(10, Activation::SIGMOID),
+		DenseLayer(3, Activation::SIGMOID)
+		});
+	network.setLearningRate(0.2f);
+#endif
 
 	std::vector<TrainingData> trData;
 	trData.reserve(BATCH_SIZE);
